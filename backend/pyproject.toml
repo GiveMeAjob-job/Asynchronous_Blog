@@ -1,0 +1,76 @@
+[tool.poetry]
+name = "blog"
+version = "0.1.0"
+description = "a fastapi blog"
+authors = ["Fernando Ike"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+alembic = "^1.4.3"
+fastapi = ">=0.65.2"
+uvicorn = "^0.13.3"
+psycopg2 = "^2.8.6"
+opentelemetry-exporter-jaeger = "^1.10.0"
+fastapi-pagination = "^0.5.2"
+python-slugify = "^4.0.1"
+passlib = "^1.7.4"
+python-jose = "^3.2.0"
+python-multipart = "^0.0.5"
+pydantic = {extras = ["dotenv"], version = "^1.8.1"}
+SQLAlchemy = "^1.4.23"
+opentelemetry-exporter-otlp = "^1.10.0"
+opentelemetry-api = "^1.10.0"
+opentelemetry-sdk = "^1.10.0"
+opentelemetry-instrumentation-requests = "^0.29b0"
+opentelemetry-instrumentation-fastapi = "^0.29b0"
+opentelemetry-instrumentation-sqlalchemy = "^0.29b0"
+
+
+[tool.poetry.dev-dependencies]
+autopep8 = "^1.5.5"
+coverage = "^5.3.1"
+pytest = "^6.2.1"
+pytest-order = "^0.9.5"
+pylint = "^2.6.0"
+flake8 = "^3.8.4"
+requests = "^2.25.1"
+black = "^20.8b1"
+pre-commit = "^2.8.2"
+
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 79
+target-version = ['py37', 'py38']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+   \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  # The following are specific to Black, you probably don't want those.
+  | blib2to3
+  |  tests
+  | profiling
+)/
+'''
+
+[tool.isort]
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+line_length = 79
+profile = "black"
+multi_line_output = 3
+known_third_party = ["alembic", "fastapi", "fastapi_pagination", "jose", "opentelemetry", "passlib", "pydantic", "pytest", "requests", "slugify", "sqlalchemy", "starlette"]

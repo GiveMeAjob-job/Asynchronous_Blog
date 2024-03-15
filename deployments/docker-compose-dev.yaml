@@ -1,0 +1,108 @@
+version: "3.9"
+services:
+  db-fapi-blog:
+    environment:
+     - POSTGRES_USER=fapi_blog
+     - POSTGRES_PASSWORD=fapi_pass
+     - POSTGRES_DB=fapi_blog
+    image: postgres:13
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - dev
+    ports:
+      - 5432:5432
+  backend:
+    build:
+      context: ../../../PycharmProjects/Asynchronous/deployments
+      dockerfile: Dockerfile_backend_dev
+      args:
+        ENVIRONMENT: development
+    volumes:
+      - $PWD/backend:/opt/blog/backend
+    depends_on:
+      - db-fapi-blog
+    environment:
+      - ENVIRONMENT=development
+      - OTELE_TRACE=True
+      - SQLALCHEMY_DATABASE_URI=postgresql://fapi_blog:fapi_pass@db-fapi-blog:5432/fapi_blog
+      - SECRET_KEY=c4af88af61391658010bd80e6fcb923f3fab38f53a4ece6d963a0c3c2d1e463b
+      - ORIGINS=*
+      - OTEL_EXPORTER_OTLP_INSECURE=False
+    networks:
+      - dev
+    ports:
+      - 8000:8000
+    restart: always
+  frontend:
+    build:
+      context: ../../../PycharmProjects/Asynchronous/deployments
+      network: deployments_dev
+      dockerfile: Dockerfile_frontend_dev
+      args:
+        ENVIRONMENT: development
+    volumes:
+      - $PWD/frontend:/opt/blog/frontend
+    depends_on:
+      - backend
+    environment:
+      - ENVIRONMENT=development
+      - OTELE_TRACE=True
+    networks:
+      - dev
+    ports:
+      - 3000:3000
+    restart: always
+  jaeger-all-in-one:
+    image: jaegertracing/all-in-one
+    environment:
+      - JAEGER_DISABLED=false
+    networks:
+      - dev
+    ports:
+      - 16686:16686
+      - 6831:6831/udp
+      - 14268
+      - 14250
+
+  # Zipkin
+  zipkin-all-in-one:
+    image: openzipkin/zipkin:latest
+    networks:
+      - dev
+    ports:
+      - "9411:9411"
+  # Collector
+  otel-collector:
+    image: otel/opentelemetry-collector:latest
+    command: ["--config=/etc/otel-collector-config.yaml", "${OTELCOL_ARGS}"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    networks:
+      - dev
+    ports:
+      - "1888:1888"   # pprof extension
+      - "8888:8888"   # Prometheus metrics exposed by the collector
+      - "8889:8889"   # Prometheus exporter metrics
+      - "13133:13133" # health_check extension
+      - "4317:4317"   # OTLP gRPC receiver
+      # - "55679:55679" # zpages extension
+      - "9411"   # Zipkin receiver
+      - "55679" # zpages extension
+    depends_on:
+      - jaeger-all-in-one
+      - zipkin-all-in-one
+
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yaml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+networks:
+  dev:
+
+volumes:
+  db-data:

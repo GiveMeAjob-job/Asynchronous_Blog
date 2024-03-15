@@ -1,0 +1,38 @@
+version: "3.8"
+services:
+  db-fapi-blog:
+    environment:
+     - POSTGRES_USER=fapi_blog
+     - POSTGRES_PASSWORD=fapi_pass
+     - POSTGRES_DB=fapi_blog
+    image: postgres:13
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - fapi_blog
+    ports:
+      - 5432:5432
+  backend:
+    build:
+      context: ../
+      dockerfile: deployments/Dockerfile_backend_dev
+      args:
+        ENVIRONMENT: production
+    volumes:
+      - $PWD:/opt/blog/backend
+    depends_on:
+      - db-fapi-blog
+    environment:
+      - ENVIRONMENT=production
+      - SQLALCHEMY_DATABASE_URI=postgresql://fapi_blog:fapi_pass@db-fapi-blog:5432/fapi_blog
+      - OTELE_TRACE=False
+    networks:
+      - fapi_blog
+    ports:
+      - 8000:8000
+
+networks:
+  fapi_blog:
+
+volumes:
+  db-data:
