@@ -6,8 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import users
 
-from .db.session import engine
-from .routers import posts
+from backend.app.db.session import engine
+from backend.app.routers import posts
 
 # Create database tables to start
 # models.Base.metadata.create_all(bind=engine)
