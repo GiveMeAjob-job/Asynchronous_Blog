@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from jose import jwt, JWTError
+from fastapi.security import OAuth2PasswordBearer
 
 # 导入相关模块
 from app.core.config import settings
@@ -13,6 +15,7 @@ from app.models.user import User
 from app.schemas.user import User as UserSchema, UserCreate, Token
 
 router = APIRouter()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 
 
 @router.post("/login", response_model=Token)
@@ -82,3 +85,32 @@ async def register(
     await db.commit()
     await db.refresh(user)
     return user
+
+
+@router.post("/refresh-token", response_model=Token)
+async def refresh_token(
+        current_token: str = Depends(oauth2_scheme),
+        db: AsyncSession = Depends(get_db)
+):
+    try:
+        payload = jwt.decode(
+            current_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM],
+            options={"verify_exp": False}
+        )
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="无效的令牌")
+
+        # 验证用户存在
+        user = await db.get(User, user_id)
+        if not user:
+            raise HTTPException(status_code=401, detail="用户不存在")
+
+        # 创建新令牌
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            user.id, expires_delta=access_token_expires
+        )
+        return {"access_token": access_token, "token_type": "bearer"}
+    except JWTError:
+        raise HTTPException(status_code=401, detail="无效的令牌")

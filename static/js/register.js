@@ -27,11 +27,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         try {
-            const response = await axios.post('/api/v1/auth/register', {
-                username: username,
-                email: email,
-                password: password
-            });
+            const response = await axios.post('/auth/register', {
+            username: username,
+            email: email,
+            password: password
+        });
 
             // 注册成功，重定向到登录页
             window.location.href = '/login?registered=true';

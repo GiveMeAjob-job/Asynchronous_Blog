@@ -22,6 +22,8 @@ class Post(Base):
     category = relationship("Category", back_populates="posts")
     comments = relationship("Comment", back_populates="post", cascade="all, delete-orphan")
     tags = relationship("Tag", secondary=post_tag, back_populates="posts")
+    views = Column(Integer, default=0)
+
 
 
 
