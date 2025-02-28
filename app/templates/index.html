@@ -1,0 +1,77 @@
+INDEX_HTML = """
+{% extends "base.html" %}
+
+{% block title %}Async Blog - 首页{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <h1 class="mb-4">最新文章</h1>
+        
+        {% if posts %}
+            {% for post in posts %}
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h2 class="card-title">{{ post.title }}</h2>
+                        <p class="card-text text-muted">
+                            {% if post.category %}
+                                <span class="badge bg-primary">{{ post.category.name }}</span>
+                            {% endif %}
+                            <small>发布于 {{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        </p>
+                        <p class="card-text">{{ post.content|truncate(200) }}</p>
+                        <a href="/post/{{ post.slug }}" class="btn btn-primary">阅读更多</a>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="alert alert-info">
+                暂无文章，敬请期待！
+            </div>
+        {% endif %}
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                关于博客
+            </div>
+            <div class="card-body">
+                <p>欢迎来到Async Blog！这是一个使用FastAPI和异步技术构建的现代博客系统。</p>
+                <a href="/register" class="btn btn-primary">立即注册</a>
+            </div>
+        </div>
+        
+        <div class="card mb-4" id="categories">
+            <div class="card-header">
+                分类
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    {% for category in categories %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <a href="/?category_id={{ category.id }}" class="text-decoration-none">{{ category.name }}</a>
+                            <span class="badge bg-primary rounded-pill">{{ category.posts|length }}</span>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card" id="tags">
+            <div class="card-header">
+                标签云
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                    {% for tag in tags %}
+                        <a href="/?tag_name={{ tag.name }}" class="text-decoration-none">
+                            <span class="badge bg-secondary">{{ tag.name }}</span>
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

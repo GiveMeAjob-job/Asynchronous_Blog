@@ -1,0 +1,107 @@
+POST_HTML = """
+{% extends "base.html" %}
+
+{% block title %}{{ post.title }} - Async Blog{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', path='/css/prism.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='/css/markdown.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <article class="blog-post">
+            <h1 class="blog-post-title">{{ post.title }}</h1>
+            <p class="blog-post-meta">
+                {{ post.created_at.strftime('%Y-%m-%d %H:%M') }} by 
+                <a href="/?author_id={{ post.author_id }}">{{ post.author.username }}</a>
+                {% if post.category %}
+                    in <a href="/?category_id={{ post.category.id }}">{{ post.category.name }}</a>
+                {% endif %}
+            </p>
+            
+            <div class="tags mb-4">
+                {% for tag in post.tags %}
+                    <a href="/?tag_name={{ tag.name }}" class="badge bg-secondary text-decoration-none">{{ tag.name }}</a>
+                {% endfor %}
+            </div>
+            
+            <div class="markdown-body">
+                {{ post.content|markdown }}
+            </div>
+        </article>
+        
+        <hr class="my-5">
+        
+        <section id="comments">
+            <h3>评论 ({{ post.comments|length }})</h3>
+            
+            <div id="comment-form" class="card mb-4">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <textarea id="comment-content" class="form-control" rows="3" placeholder="写下您的评论..." required></textarea>
+                    </div>
+                    <button type="button" id="submit-comment" class="btn btn-primary" data-post-id="{{ post.id }}">提交评论</button>
+                    <div id="comment-error" class="alert alert-danger mt-3 d-none"></div>
+                </div>
+            </div>
+            
+            <div id="comment-list">
+                {% if post.comments %}
+                    {% for comment in post.comments|sort(attribute='created_at', reverse=True) %}
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ comment.author.username }}</h5>
+                                <h6 class="card-subtitle mb-2 text-muted">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</h6>
+                                <p class="card-text">{{ comment.content }}</p>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="alert alert-light">
+                        暂无评论，来写下第一条评论吧！
+                    </div>
+                {% endif %}
+            </div>
+        </section>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="position-sticky" style="top: 2rem;">
+            <div class="card mb-4">
+                <div class="card-header">
+                    关于作者
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ post.author.username }}</h5>
+                    <p class="card-text">作者已发布 {{ post.author.posts|length }} 篇文章</p>
+                    <a href="/?author_id={{ post.author_id }}" class="btn btn-sm btn-outline-primary">查看所有文章</a>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    相关文章
+                </div>
+                <div class="card-body">
+                    <div id="related-posts">
+                        <!-- 相关文章将通过JavaScript动态加载 -->
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', path='/js/prism.js') }}"></script>
+<script src="{{ url_for('static', path='/js/post.js') }}"></script>
+{% endblock %}
+"""

@@ -1,0 +1,58 @@
+REGISTER_HTML = """
+{% extends "base.html" %}
+
+{% block title %}注册 - Async Blog{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header text-center">
+                <h4>注册新账号</h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-danger d-none" id="register-error"></div>
+                
+                <form id="register-form">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">用户名</label>
+                        <input type="text" class="form-control" id="username" required>
+                        <div class="form-text">用户名只能包含字母、数字和下划线</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">邮箱</label>
+                        <input type="email" class="form-control" id="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">密码</label>
+                        <input type="password" class="form-control" id="password" required>
+                        <div class="form-text">密码至少8个字符，包含大小写字母和数字</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirm-password" class="form-label">确认密码</label>
+                        <input type="password" class="form-control" id="confirm-password" required>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="agree-terms" required>
+                        <label class="form-check-label" for="agree-terms">我同意网站的<a href="#">服务条款</a>和<a href="#">隐私政策</a></label>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">注册</button>
+                    </div>
+                </form>
+                
+                <hr>
+                
+                <div class="text-center">
+                    <p>已有账号？ <a href="/login">立即登录</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', path='/js/register.js') }}"></script>
+{% endblock %}
+"""

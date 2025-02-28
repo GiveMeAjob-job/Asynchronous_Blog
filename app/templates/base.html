@@ -1,0 +1,70 @@
+BASE_HTML = """
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Async Blog{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">Async Blog</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">首页</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/#categories">分类</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/#tags">标签</a>
+                    </li>
+                </ul>
+                <div class="d-flex">
+                    <div id="auth-buttons">
+                        <a href="/login" class="btn btn-outline-light me-2">登录</a>
+                        <a href="/register" class="btn btn-light">注册</a>
+                    </div>
+                    <div id="user-menu" class="d-none">
+                        <div class="dropdown">
+                            <button class="btn btn-light dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown">
+                                <span id="username">用户</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                                <li><a class="dropdown-item" href="/dashboard">仪表盘</a></li>
+                                <li><a class="dropdown-item" href="/dashboard/posts/new">写文章</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="#" id="logout-btn">退出</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container py-4">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="bg-light py-4 mt-4">
+        <div class="container text-center">
+            <p class="mb-0">&copy; {% now 'Y' %} Async Blog. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', path='/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ url_for('static', path='/js/axios.min.js') }}"></script>
+    <script src="{{ url_for('static', path='/js/main.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
+"""
