@@ -28,10 +28,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
             const response = await axios.post('/auth/register', {
-            username: username,
-            email: email,
-            password: password
-        });
+                username: username,
+                email: email,
+                password: password,
+                is_active: true,      // 添加
+    is_superuser: false   // 添加
+            }, { baseURL: '' }); // 临时禁用 baseURL
+
 
             // 注册成功，重定向到登录页
             window.location.href = '/login?registered=true';

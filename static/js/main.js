@@ -42,9 +42,11 @@ document.addEventListener('DOMContentLoaded', function() {
     checkAuthStatus();
 });
 
-// 设置axios默认配置
+// 保留默认 baseURL
 axios.defaults.baseURL = '/api/v1';
-axios.interceptors.request.use(function (config) {
+
+// 移除拦截器中手动处理 /api/v1 的逻辑
+axios.interceptors.request.use((config) => {
     const token = localStorage.getItem('token');
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;

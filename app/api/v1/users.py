@@ -6,9 +6,9 @@ from sqlalchemy.future import select
 # 导入相关模块
 from app.core.database import get_db
 from app.core.security import get_password_hash
-from app.api.dependencies import get_current_active_user, get_current_superuser
+from app.api.v1.dependencies import get_current_active_user, get_current_superuser
 from app.models.user import User
-from app.schemas.user import User as UserSchema, UserCreate, UserUpdate
+from app.schemas.user import User as UserSchema, UserUpdate
 
 router = APIRouter()
 

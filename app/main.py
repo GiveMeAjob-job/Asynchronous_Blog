@@ -12,11 +12,12 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy import func, and_, or_
 
-from app.api.dependencies import get_current_user
+from app.api.v1.dependencies import get_current_user
 from app.core.config import settings
 from app.core.database import get_db
-from app.api import auth, users, posts
+from app.api.v1 import auth, posts, users
 from app.models import import_all
+
 
 User, Category, Tag, Post, post_tag, Comment = import_all()
 
@@ -43,17 +44,17 @@ templates = Jinja2Templates(directory="app/templates")
 # 注册API路由
 app.include_router(
     auth.router,
-    prefix=f"{settings.API_V1_STR}/auth",
+    prefix="/auth",  # 改为 /api/v1/auth
     tags=["认证"]
 )
 app.include_router(
     users.router,
-    prefix=f"{settings.API_V1_STR}/users",
+    prefix="/users",  # 改为 /api/v1/users
     tags=["用户"]
 )
 app.include_router(
     posts.router,
-    prefix=f"{settings.API_V1_STR}/posts",
+    prefix="/posts",  # 改为 /api/v1/posts
     tags=["文章"]
 )
 

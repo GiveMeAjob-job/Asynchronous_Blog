@@ -17,7 +17,18 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
+    username: str
+    email: str
     password: str
+    is_active: bool = True  # 默认激活
+    is_superuser: bool = False  # 默认非超级用户
+
+    @validator('username')
+    def username_alphanumeric(cls, v):
+        # 示例：允许中英文、数字、下划线、横线
+        if not re.match(r'^[\u4e00-\u9fa5_a-zA-Z0-9-]+$', v):
+            raise ValueError('用户名格式不正确')
+        return v
 
     @validator('password')
     def password_strong_enough(cls, v):

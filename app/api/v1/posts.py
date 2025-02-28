@@ -1,13 +1,13 @@
 from typing import Any, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
-from sqlalchemy import func, and_
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
 # 导入相关模块
 from app.core.database import get_db
-from app.api.dependencies import get_current_active_user, get_current_superuser
+from app.api.v1.dependencies import get_current_active_user
 from app.models import import_all
 from app.schemas.post import (
     Post as PostSchema,
@@ -15,12 +15,8 @@ from app.schemas.post import (
     PostUpdate,
     PostDetail,
     Comment as CommentSchema,
-    CommentCreate,
-    Tag as TagSchema,
-    TagCreate,
-    Category as CategorySchema,
-    CategoryCreate
- )
+    CommentCreate
+)
 
 router = APIRouter()
 

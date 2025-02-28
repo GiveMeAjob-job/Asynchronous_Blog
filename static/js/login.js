@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
         loginError.classList.add('d-none');
 
         try {
-            const response = await axios.post('/api/v1/auth/login',
+            const response = await axios.post('auth/login',
                 new URLSearchParams({
                     'username': email,  // API接收username参数，但我们使用email
                     'password': password
