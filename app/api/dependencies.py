@@ -5,10 +5,10 @@ from jose import jwt, JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # 在实际项目中，这些导入会从正确的模块中导入
-# from app.core.config import settings
-# from app.core.database import get_db
-# from app.models.user import User
-# from app.schemas.user import TokenPayload
+from app.core.config import settings
+from app.core.database import get_db
+from app.models.user import User
+from app.schemas.user import TokenPayload
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 

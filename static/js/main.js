@@ -1,4 +1,3 @@
-MAIN_JS = """
 // 检查用户登录状态并更新UI
 function checkAuthStatus() {
     const token = localStorage.getItem('token');
@@ -66,4 +65,3 @@ axios.interceptors.response.use(
         return Promise.reject(error);
     }
 );
-"""

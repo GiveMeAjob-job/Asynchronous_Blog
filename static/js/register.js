@@ -1,4 +1,3 @@
-REGISTER_JS = """
 document.addEventListener('DOMContentLoaded', function() {
     const registerForm = document.getElementById('register-form');
     const registerError = document.getElementById('register-error');
@@ -49,4 +48,4 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
-"""
+

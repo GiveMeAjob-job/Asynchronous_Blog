@@ -1,4 +1,3 @@
-LOGIN_JS = """
 document.addEventListener('DOMContentLoaded', function() {
     const loginForm = document.getElementById('login-form');
     const loginError = document.getElementById('login-error');
@@ -44,4 +43,3 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
-"""

@@ -7,10 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-# from app.core.config import settings
-# from app.core.database import get_db
-# from app.api import auth, users, posts
-# from app.models.post import Post, Category, Tag, Comment
+from app.core.config import settings
+from app.core.database import get_db
+from app.api import auth, users, posts
+from .models import Post, Category, Tag, Comment, User
+
+from datetime import datetime
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -73,6 +75,7 @@ async def index(request: Request, db: AsyncSession = Depends(get_db)):
         "index.html",
         {
             "request": request,
+            "current_year": datetime.now().year,
             "posts": posts,
             "categories": categories,
             "tags": tags
@@ -134,3 +137,49 @@ async def dashboard_page(request: Request):
         "dashboard.html",
         {"request": request}
     )
+
+
+@app.get("/dashboard")
+async def dashboard(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    # 获取用户文章统计
+    total_posts = await db.execute(
+        select(func.count(Post.id)).where(Post.author_id == current_user.id)
+    )
+    total_posts = total_posts.scalar_one()
+
+    published_posts = await db.execute(
+        select(func.count(Post.id)).where(
+            (Post.author_id == current_user.id) & (Post.published == True)
+        )
+    )
+    published_posts = published_posts.scalar_one()
+
+    draft_posts = await db.execute(
+        select(func.count(Post.id)).where(
+            (Post.author_id == current_user.id) & (Post.published == False)
+        )
+    )
+    draft_posts = draft_posts.scalar_one()
+
+    # 获取最近文章
+    recent_posts = await db.execute(
+        select(Post)
+        .where(Post.author_id == current_user.id)
+        .order_by(Post.created_at.desc())
+        .limit(5)
+    )
+    recent_posts = recent_posts.scalars().all()
+
+    return templates.TemplateResponse("dashboard.html", {
+        "request": request,
+        "current_user": current_user,
+        "total_posts": total_posts,
+        "published_posts": published_posts,
+        "draft_posts": draft_posts,
+        "recent_posts": recent_posts,
+        "current_year": datetime.now().year
+    })

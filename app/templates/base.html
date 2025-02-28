@@ -1,4 +1,3 @@
-BASE_HTML = """
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -57,7 +56,7 @@ BASE_HTML = """
 
     <footer class="bg-light py-4 mt-4">
         <div class="container text-center">
-            <p class="mb-0">&copy; {% now 'Y' %} Async Blog. All rights reserved.</p>
+            <p class="mb-0">&copy; {{ current_year }} Async Blog. All rights reserved.</p>
         </div>
     </footer>
 
@@ -67,4 +66,3 @@ BASE_HTML = """
     {% block extra_js %}{% endblock %}
 </body>
 </html>
-"""

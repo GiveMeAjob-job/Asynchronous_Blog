@@ -1,4 +1,3 @@
-POST_JS = """
 document.addEventListener('DOMContentLoaded', function() {
     const submitCommentBtn = document.getElementById('submit-comment');
     const commentContent = document.getElementById('comment-content');
@@ -103,4 +102,3 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(loadRelatedPosts, 500);
     }
 });
-"""

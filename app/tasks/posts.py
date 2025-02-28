@@ -5,9 +5,9 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.future import select
 
-# from app.core.config import settings
-# from app.models.post import Post, Comment
-# from app.core.redis import set_cache
+from app.core.config import settings
+from app.models.post import Post, Comment
+from app.core.redis import set_cache
 
 engine = create_async_engine(
     str(settings.DATABASE_URL),

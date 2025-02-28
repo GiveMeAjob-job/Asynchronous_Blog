@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}仪表盘 - Async Blog{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <div class="list-group">
+            <a href="/dashboard" class="list-group-item list-group-item-action active">
+                仪表盘总览
+            </a>
+            <a href="/dashboard/posts" class="list-group-item list-group-item-action">
+                我的文章
+            </a>
+            <a href="/dashboard/posts/new" class="list-group-item list-group-item-action">
+                发布新文章
+            </a>
+            <a href="/dashboard/profile" class="list-group-item list-group-item-action">
+                个人资料
+            </a>
+        </div>
+    </div>
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">仪表盘</h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="card text-white bg-primary mb-3">
+                            <div class="card-body">
+                                <h5 class="card-title">文章总数</h5>
+                                <p class="card-text display-4">{{ total_posts }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card text-white bg-success mb-3">
+                            <div class="card-body">
+                                <h5 class="card-title">已发布</h5>
+                                <p class="card-text display-4">{{ published_posts }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card text-white bg-info mb-3">
+                            <div class="card-body">
+                                <h5 class="card-title">草稿</h5>
+                                <p class="card-text display-4">{{ draft_posts }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <h4 class="mt-4">最近文章</h4>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>标题</th>
+                            <th>状态</th>
+                            <th>发布日期</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for post in recent_posts %}
+                        <tr>
+                            <td>{{ post.title }}</td>
+                            <td>
+                                {% if post.published %}
+                                <span class="badge bg-success">已发布</span>
+                                {% else %}
+                                <span class="badge bg-secondary">草稿</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ post.created_at.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <a href="/dashboard/posts/edit/{{ post.id }}" class="btn btn-sm btn-primary">编辑</a>
+                                <button class="btn btn-sm btn-danger delete-post" data-id="{{ post.id }}">删除</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const deleteButtons = document.querySelectorAll('.delete-post');
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const postId = this.getAttribute('data-id');
+            if(confirm('确定要删除这篇文章吗？')) {
+                axios.delete(`/api/posts/${postId}`)
+                    .then(response => {
+                        window.location.reload();
+                    })
+                    .catch(error => {
+                        alert('删除失败：' + error.response.data.detail);
+                    });
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

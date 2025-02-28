@@ -1,5 +1,6 @@
 from typing import Optional, Dict, Any, Union
-from pydantic import BaseSettings, EmailStr, PostgresDsn, RedisDsn, validator
+from pydantic import EmailStr, PostgresDsn, RedisDsn, validator
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -10,7 +11,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     # 数据库配置
-    DATABASE_URL: PostgresDsn
+    DATABASE_URL: Optional[PostgresDsn] = "postgresql+asyncpg://postgres:postgres@db:5432/async_blog"
 
     # Redis配置
     REDIS_URL: RedisDsn

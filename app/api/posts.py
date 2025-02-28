@@ -6,22 +6,22 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
 # 导入相关模块
-# from app.core.database import get_db
-# from app.api.dependencies import get_current_active_user, get_current_superuser
-# from app.models.post import Post, Comment, Category, Tag, post_tag
-# from app.models.user import User
-# from app.schemas.post import (
-#     Post as PostSchema,
-#     PostCreate,
-#     PostUpdate,
-#     PostDetail,
-#     Comment as CommentSchema,
-#     CommentCreate,
-#     Tag as TagSchema,
-#     TagCreate,
-#     Category as CategorySchema,
-#     CategoryCreate
-# )
+from app.core.database import get_db
+from app.api.dependencies import get_current_active_user, get_current_superuser
+from app.models.post import Post, Comment, Category, Tag, post_tag
+from app.models.user import User
+from app.schemas.post import (
+    Post as PostSchema,
+    PostCreate,
+    PostUpdate,
+    PostDetail,
+    Comment as CommentSchema,
+    CommentCreate,
+    Tag as TagSchema,
+    TagCreate,
+    Category as CategorySchema,
+    CategoryCreate
+ )
 
 router = APIRouter()
 
@@ -174,14 +174,13 @@ async def update_post(
     await db.refresh(post)
     return post
 
-
 @router.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_post(
         *,
         db: AsyncSession = Depends(get_db),
         post_id: int,
         current_user: User = Depends(get_current_active_user),
-) -> Any:
+) -> None:
     """删除文章"""
     post = await db.get(Post, post_id)
     if not post:
@@ -199,8 +198,7 @@ async def delete_post(
 
     await db.delete(post)
     await db.commit()
-    return None
-
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 @router.post("/{post_id}/comments", response_model=CommentSchema)
 async def create_comment(

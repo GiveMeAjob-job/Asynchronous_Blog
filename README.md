@@ -1,202 +1,132 @@
-README_MD = """
 # Async Blog
 
-一个基于FastAPI、SQLAlchemy、Celery和Redis的现代异步博客系统。
+一个基于现代技术栈的异步博客系统，采用 FastAPI、SQLAlchemy、Celery 和 Redis 构建。
 
-## 特性
+## 🚀 项目特性
 
-- 基于FastAPI构建的异步API
-- SQLAlchemy ORM与异步数据库操作
-- Celery任务队列处理后台任务
-- Redis缓存提升性能
-- JWT认证系统
-- 响应式前端界面
-- Docker容器化部署
+- **高性能异步 API**：基于 FastAPI 构建
+- **现代 ORM**：使用 SQLAlchemy 异步数据库操作
+- **分布式任务队列**：Celery 处理后台任务
+- **缓存优化**：Redis 性能提升
+- **安全认证**：JWT 鉴权系统
+- **容器化部署**：Docker Compose 一键部署
 
-## 快速开始
+## 📦 技术栈
 
-### 使用Docker Compose
+- **后端**：FastAPI, SQLAlchemy
+- **异步支持**：asyncio
+- **数据库**：PostgreSQL
+- **缓存**：Redis
+- **任务队列**：Celery, RabbitMQ
+- **认证**：JWT
+- **依赖管理**：Poetry
+- **容器化**：Docker, Docker Compose
+
+## 🛠️ 快速开始
+
+### 先决条件
+
+- Docker & Docker Compose
+- Python 3.11+
+- Poetry
+
+### 开发环境部署
 
 ```bash
-# 克隆仓库
+# 克隆项目
 git clone https://github.com/yourusername/async-blog.git
 cd async-blog
 
-# 创建.env文件
+# 创建并配置 .env 文件
 cp .env.example .env
-# 编辑.env文件设置环境变量
+# 编辑 .env 设置环境变量
 
-# 启动容器
+# 使用 Docker Compose 启动服务
 docker compose up -d
 
-# 创建初始迁移
-docker-compose exec web alembic revision --autogenerate -m "Initial migration"
+# 创建数据库迁移
+docker compose exec web alembic revision --autogenerate -m "Initial migration"
 
-# 应用迁移
-docker-compose exec web alembic upgrade head
+# 应用数据库迁移
+docker compose exec web alembic upgrade head
 ```
 
-### 访问
-
-- Web应用：http://localhost:8000
-- API文档：http://localhost:8000/docs
-- RabbitMQ管理界面：http://localhost:15672
-- Flower任务监控：http://localhost:5555
-
-## 开发
-
-### 安装依赖
+### 本地开发
 
 ```bash
-# 安装Poetry
+# 安装 Poetry
 pip install poetry
 
 # 安装项目依赖
 poetry install
-```
 
-### 本地运行
-
-```bash
 # 激活虚拟环境
 poetry shell
 
-# 运行应用
+# 启动开发服务器
 uvicorn app.main:app --reload
 ```
 
-## 项目结构
+## 🌐 访问服务
+
+- **Web 应用**：http://localhost:8000
+- **API 文档**：http://localhost:8000/docs
+- **RabbitMQ 管理**：http://localhost:15672
+- **Celery 监控**：http://localhost:5555
+
+## 📂 项目结构
 
 ```
 async_blog/
 ├── alembic/              # 数据库迁移
-├── app/                  # 应用代码
-│   ├── api/              # API路由
+├── app/
+│   ├── api/              # API 路由
 │   ├── core/             # 核心配置
 │   ├── models/           # 数据库模型
-│   ├── schemas/          # Pydantic模型
+│   ├── schemas/          # 数据验证模型
 │   ├── services/         # 业务逻辑
-│   ├── tasks/            # Celery任务
+│   ├── tasks/            # 后台任务
 │   └── templates/        # 前端模板
 ├── static/               # 静态资源
-│   ├── css/
-│   ├── js/
-│   └── img/
-├── tests/                # 测试代码
-├── .env                  # 环境变量
-└── docker-compose.yml    # Docker配置
+├── tests/                # 单元测试
+└── docker-compose.yml    # 容器编排
 ```
 
-## 贡献
+## 🔧 开发指南
 
-欢迎贡献代码、报告问题或提出新功能建议。
-
-## 许可证
-
-MIT
-"""
-
-#############################################################################
-# 12. 使用指南
-#############################################################################
-
-"""
-项目使用指南
-=============
-
-1. 项目结构设置
----------------
-
-按照文件顶部显示的目录结构创建项目文件。可以使用以下命令快速创建目录结构：
+### 数据库迁移
 
 ```bash
-mkdir -p async_blog/{alembic/versions,app/{api,core,models,schemas,services,tasks,templates,utils},static/{css,js,img},tests}
-touch async_blog/{.env,.gitignore,alembic.ini,docker-compose.yml,Dockerfile,pyproject.toml,README.md}
-touch async_blog/app/{__init__.py,main.py}
-touch async_blog/app/{api,core,models,schemas,services,tasks,utils}/__init__.py
-touch async_blog/tests/__init__.py
+# 生成迁移脚本
+alembic revision --autogenerate -m "描述变更"
+
+# 应用迁移
+alembic upgrade head
 ```
 
-2. 复制代码
------------
+### 后台任务
 
-将各个部分的代码复制到相应的文件中，确保文件路径与上面的文件结构一致。
+```bash
+# 启动 Celery worker
+celery -A app.tasks.worker worker -l info
+```
 
-3. 运行项目
------------
+## 🤝 贡献
 
-### 使用Docker Compose（推荐）:
+1. Fork 项目
+2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
+3. 提交变更 (`git commit -m 'Add some amazing feature'`)
+4. 推送到分支 (`git push origin feature/amazing-feature`)
+5. 创建 Pull Request
 
-1. 确保已安装Docker和Docker Compose
-2. 在项目根目录下创建.env文件：
-   ```bash
-   cp .env.example .env
-   # 编辑.env文件，设置密钥等配置
-   ```
-3. 启动所有服务：
-   ```bash
-   docker-compose up -d
-   ```
-4. 创建初始数据库迁移：
-   ```bash
-   docker-compose exec web alembic revision --autogenerate -m "Initial migration"
-   ```
-5. 应用迁移：
-   ```bash
-   docker-compose exec web alembic upgrade head
-   ```
-6. 访问网站：http://localhost:8000
+## 🛡️ 安全
 
-### 本地开发：
+请查看 [SECURITY.md](SECURITY.md) 了解报告安全漏洞的流程。
 
-1. 安装Poetry：
-   ```bash
-   pip install poetry
-   ```
-2. 安装项目依赖：
-   ```bash
-   poetry install
-   ```
-3. 激活虚拟环境：
-   ```bash
-   poetry shell
-   ```
-4. 启动PostgreSQL、Redis和RabbitMQ（可使用Docker）
-5. 创建并编辑.env文件配置连接信息
-6. 创建初始数据库迁移：
-   ```bash
-   alembic revision --autogenerate -m "Initial migration"
-   ```
-7. 应用迁移：
-   ```bash
-   alembic upgrade head
-   ```
-8. 启动应用：
-   ```bash
-   uvicorn app.main:app --reload
-   ```
-9. 在另一个终端启动Celery工作进程：
-   ```bash
-   celery -A app.tasks.worker worker -l info
-   ```
+## 📄 许可证
 
-4. 功能测试
------------
+本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件。
 
-- 访问API文档：http://localhost:8000/docs
-- 注册新用户：http://localhost:8000/register
-- 登录系统：http://localhost:8000/login
-- 查看文章列表：http://localhost:8000/
-- 创建新文章：通过API或仪表盘功能
+## 🌟 鸣谢
 
-5. 后续开发
------------
-
-1. 完善前端界面，添加更多交互功能
-2. 实现更复杂的权限控制系统
-3. 添加搜索功能（考虑使用Elasticsearch）
-4. 实现多语言支持
-5. 添加文件上传功能
-6. 实现社交分享和评论审核系统
-"""
-
+感谢所有为项目做出贡献的开发者和开源社区！
