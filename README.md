@@ -49,6 +49,16 @@ docker compose exec web alembic revision --autogenerate -m "Initial migration"
 
 # 应用数据库迁移
 docker compose exec web alembic upgrade head
+
+# 查看所有服务的日志：
+docker compose logs
+
+# 只查看某个服务（比如 web 服务）的日志：
+docker compose logs web
+
+# 如果希望实时跟踪日志，可以加上 -f 参数：
+docker compose logs -f web
+
 ```
 
 ### 本地开发

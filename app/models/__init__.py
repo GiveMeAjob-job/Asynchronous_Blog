@@ -1,6 +1,9 @@
 # 导入所有模型
-from .user import User
-from .post import Post, post_tag
-from .comment import Comment
-from .category import Category
-from .tag import Tag
+def import_all():
+    from .user import User
+    from .category import Category
+    from .post import Post
+    from .tag import Tag, post_tag
+    from .comment import Comment
+
+    return User, Category, Tag, Post, post_tag, Comment

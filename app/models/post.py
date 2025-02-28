@@ -1,16 +1,8 @@
-from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, Table, Text
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.core.database import Base
-
-# 多对多关系表：文章和标签
-post_tag = Table(
-    "post_tag",
-    Base.metadata,
-    Column("post_id", Integer, ForeignKey("posts.id"), primary_key=True),
-    Column("tag_id", Integer, ForeignKey("tags.id"), primary_key=True),
-    extend_existing=True
-)
+from app.models.tag import post_tag
 
 class Post(Base):
     __tablename__ = "posts"
@@ -30,3 +22,6 @@ class Post(Base):
     category = relationship("Category", back_populates="posts")
     comments = relationship("Comment", back_populates="post", cascade="all, delete-orphan")
     tags = relationship("Tag", secondary=post_tag, back_populates="posts")
+
+
+

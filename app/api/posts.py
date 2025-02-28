@@ -8,8 +8,7 @@ from sqlalchemy.orm import selectinload
 # 导入相关模块
 from app.core.database import get_db
 from app.api.dependencies import get_current_active_user, get_current_superuser
-from app.models.post import Post, Comment, Category, Tag, post_tag
-from app.models.user import User
+from app.models import import_all
 from app.schemas.post import (
     Post as PostSchema,
     PostCreate,
@@ -25,6 +24,7 @@ from app.schemas.post import (
 
 router = APIRouter()
 
+User, Category, Tag, Post, post_tag, Comment = import_all()
 
 @router.get("/", response_model=List[PostSchema])
 async def read_posts(

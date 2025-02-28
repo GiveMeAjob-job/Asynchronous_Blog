@@ -6,13 +6,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-
+from app.api.dependencies import get_current_user
 from app.core.config import settings
 from app.core.database import get_db
 from app.api import auth, users, posts
-from .models import Post, Category, Tag, Comment, User
+from app.models import import_all
 
 from datetime import datetime
+
+User, Category, Tag, Post, post_tag, Comment = import_all()
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -183,3 +186,11 @@ async def dashboard(
         "recent_posts": recent_posts,
         "current_year": datetime.now().year
     })
+
+@app.get("/dashboard/posts/new", response_class=HTMLResponse)
+async def new_post_page(request: Request):
+    """新建文章页面"""
+    return templates.TemplateResponse(
+        "new_post.html",
+        {"request": request}
+    )

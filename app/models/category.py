@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 class Category(Base):
-    __tablename__ = "categories"
+    __tablename__ = "categories"  # 修复这里的双下划线
     __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
