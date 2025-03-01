@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Optional
 import math
 
+
 from fastapi import FastAPI, Request, Depends, Query
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -18,6 +19,8 @@ from app.core.database import get_db
 from app.api.v1 import auth, posts, users
 from app.models import import_all
 
+from app.core.security import get_password_hash
+from app.core.database import async_session
 
 User, Category, Tag, Post, post_tag, Comment = import_all()
 
@@ -44,7 +47,7 @@ templates = Jinja2Templates(directory="app/templates")
 # 注册API路由
 app.include_router(
     auth.router,
-    prefix="/auth",  # 改为 /api/v1/auth
+    prefix=f"{settings.API_V1_STR}/auth",
     tags=["认证"]
 )
 app.include_router(
@@ -299,3 +302,27 @@ async def search(
             "current_year": datetime.now().year
         }
     )
+
+
+# 添加超级管理员账号创建函数
+@app.on_event("startup")
+async def create_admin_user():
+    """在应用启动时创建超级管理员账号（如果不存在）"""
+    async with async_session() as db:
+        # 检查admin账号是否已存在
+        query = select(User).where(User.email == "admin@example.com")
+        result = await db.execute(query)
+        admin_user = result.scalars().first()
+
+        if not admin_user:
+            # 创建超级管理员账号
+            admin = User(
+                email="admin@example.com",
+                username="admin",
+                hashed_password=get_password_hash("Admin123!"),
+                is_active=True,
+                is_superuser=True
+            )
+            db.add(admin)
+            await db.commit()
+            print("🔑 已创建超级管理员账号 - 用户名: admin, 密码: Admin123!")
