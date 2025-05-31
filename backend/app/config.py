@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     SECRET_KEY: Optional[str]
     ORIGINS: Optional[str]
     TEST_SQLALCHEMY_DATABASE_URI: Optional[PostgresDsn]
+    API_V1_STR: str = "/api/v1"
 
     class Config:
         env_file = ".env"

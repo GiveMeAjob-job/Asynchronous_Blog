@@ -8,6 +8,7 @@ from app.routers import users
 
 from backend.app.db.session import engine
 from backend.app.routers import posts
+from backend.app.config import settings
 
 # Create database tables to start
 # models.Base.metadata.create_all(bind=engine)
@@ -59,5 +60,11 @@ if otel_trace == "True":  # pragma: no cover
 else:
     pass
 
-app.include_router(posts.router)
-app.include_router(users.router)
+app.include_router(
+    users.router,
+    prefix=settings.API_V1_STR,
+)
+app.include_router(
+    posts.router,
+    prefix=settings.API_V1_STR,
+)

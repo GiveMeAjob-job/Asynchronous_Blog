@@ -10,6 +10,7 @@ import MDXComponents from '../components/MDXComponents'
 export const PAGE_SIZE = 50
 
 
+
 export async function getPosts() {
   const response = await fetch(`${process.env.BACKEND_URI}/posts`);
   const respJson = await response.json();
@@ -19,7 +20,6 @@ export async function getPosts() {
 }
 
 export async function getAllPosts() {
-
   const response = await fetch(`${process.env.BACKEND_URI}/posts?page=0&size=1`)
   const respJson = await response.json()
   const totalItems = respJson['total']
@@ -68,6 +68,7 @@ export async function getPostBySlug(slug) {
     mdxSource,
     frontMatter: {
       // Split on whitespace to determine approximate word count
+
       wordCount: content.split(/\s+/gu).length,
       readingTime: readingTime(content),
       slug: slug || null,
