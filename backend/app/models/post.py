@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import TIMESTAMP, Integer, String
+from sqlalchemy import TIMESTAMP, Integer, String, Index
 from sqlalchemy.sql.schema import Column, ForeignKey
 
 from app.db.base import Base
@@ -10,6 +10,9 @@ from . import user
 
 class Post(Base):
     __tablename__: str = "posts"
+    __table_args__ = (
+        Index("idx_post_author", "author_id"),
+    )
 
     id: int = Column(Integer, primary_key=True, index=True)
     author_id: int = Column(ForeignKey(user.User.id), nullable=False)
