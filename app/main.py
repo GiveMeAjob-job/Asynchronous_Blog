@@ -1,42 +1,70 @@
+# app/main.py
 from datetime import datetime
 from typing import Optional
 import math
+import logging
 
-
-from fastapi import FastAPI, Request, Depends, Query
+from fastapi import FastAPI, Request, Depends, Query, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy import func, and_, or_
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from app.api.v1.dependencies import get_current_user
 from app.core.config import settings
-from app.core.database import get_db
-from app.api.v1 import auth, posts, users
+from app.core.database import get_db, async_session
+from app.core.logging import setup_logging
+from app.api.v1 import auth, posts, users, categories, tags
 from app.models import import_all
-
 from app.core.security import get_password_hash
-from app.core.database import async_session
+from app.core.middleware import log_requests, add_process_time_header
 
+# 设置日志
+setup_logging()
+logger = logging.getLogger(__name__)
+
+# 导入模型
 User, Category, Tag, Post, post_tag, Comment = import_all()
 
+# 创建应用
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    docs_url=f"{settings.API_V1_STR}/docs",
+    redoc_url=f"{settings.API_V1_STR}/redoc",
 )
 
-# 设置CORS
+# 设置限流器
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# 中间件配置
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["*"] if settings.ENVIRONMENT == "development" else settings.ALLOWED_HOSTS
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 自定义中间件
+app.middleware("http")(log_requests)
+app.middleware("http")(add_process_time_header)
 
 # 设置静态文件
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -44,144 +72,236 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # 设置模板
 templates = Jinja2Templates(directory="app/templates")
 
-# 注册API路由
-app.include_router(
-    auth.router,
-    prefix=f"{settings.API_V1_STR}/auth",
-    tags=["认证"]
-)
-app.include_router(
-    users.router,
-    prefix="/users",  # 改为 /api/v1/users
-    tags=["用户"]
-)
-app.include_router(
-    posts.router,
-    prefix="/posts",  # 改为 /api/v1/posts
-    tags=["文章"]
-)
+# 注册API路由 - 统一使用 API 版本前缀
+api_v1_routers = [
+    (auth.router, "auth", ["认证"]),
+    (users.router, "users", ["用户"]),
+    (posts.router, "posts", ["文章"]),
+    (categories.router, "categories", ["分类"]),
+    (tags.router, "tags", ["标签"]),
+]
+
+for router, prefix, tags in api_v1_routers:
+    app.include_router(
+        router,
+        prefix=f"{settings.API_V1_STR}/{prefix}",
+        tags=tags
+    )
+
+
+# 健康检查端点
+@app.get("/health")
+async def health_check():
+    """健康检查端点"""
+    return {"status": "healthy", "timestamp": datetime.utcnow()}
 
 
 # 前端路由
 @app.get("/", response_class=HTMLResponse)
+@limiter.limit("30/minute")
 async def index(
         request: Request,
         page: int = Query(1, ge=1),
-        per_page: int = Query(10, le=100),
+        per_page: int = Query(settings.DEFAULT_PAGE_SIZE, le=settings.MAX_PAGE_SIZE),
         sort: str = Query("newest", regex="^(newest|oldest|popular)$"),
+        category_id: Optional[int] = None,
+        tag_name: Optional[str] = None,
         db: AsyncSession = Depends(get_db)
 ):
-    """首页 - 支持分页和排序"""
-    # 基础查询
-    query = select(Post).where(Post.published == True)
+    """首页 - 支持分页、排序和筛选"""
+    try:
+        # 基础查询 - 优化查询，预加载关联数据
+        query = select(Post).options(
+            selectinload(Post.author),
+            selectinload(Post.category),
+            selectinload(Post.tags)
+        ).where(Post.published == True)
 
-    # 排序
-    if sort == "newest":
-        query = query.order_by(Post.created_at.desc())
-    elif sort == "oldest":
-        query = query.order_by(Post.created_at.asc())
-    elif sort == "popular":
-        query = query.order_by(Post.views.desc())
+        # 分类筛选
+        if category_id:
+            query = query.where(Post.category_id == category_id)
 
-    # 计算总数
-    count_query = select(func.count(Post.id)).where(Post.published == True)
-    total = await db.execute(count_query)
-    total = total.scalar_one()
+        # 标签筛选
+        if tag_name:
+            query = query.join(post_tag).join(Tag).where(Tag.name == tag_name)
 
-    # 分页
-    offset = (page - 1) * per_page
-    query = query.offset(offset).limit(per_page)
-
-    # 执行查询
-    result = await db.execute(query)
-    posts = result.scalars().all()
-
-    # 获取所有分类
-    cat_query = select(Category)
-    cat_result = await db.execute(cat_query)
-    categories = cat_result.scalars().all()
-
-    # 获取所有标签
-    tag_query = select(Tag)
-    tag_result = await db.execute(tag_query)
-    tags = tag_result.scalars().all()
-
-    # 计算分页数据
-    total_pages = math.ceil(total / per_page) if total > 0 else 0
-    has_next = page < total_pages
-    has_prev = page > 1
-
-    return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
-            "posts": posts,
-            "page": page,
-            "per_page": per_page,
-            "total": total,
-            "total_pages": total_pages,
-            "has_next": has_next,
-            "has_prev": has_prev,
-            "sort": sort,
-            "categories": categories,
-            "tags": tags,
-            "current_year": datetime.now().year
+        # 排序
+        order_mapping = {
+            "newest": Post.created_at.desc(),
+            "oldest": Post.created_at.asc(),
+            "popular": Post.views.desc()
         }
-    )
+        query = query.order_by(order_mapping[sort])
+
+        # 计算总数
+        count_query = select(func.count()).select_from(query.subquery())
+        total_result = await db.execute(count_query)
+        total = total_result.scalar_one()
+
+        # 分页
+        offset = (page - 1) * per_page
+        query = query.offset(offset).limit(per_page)
+
+        # 执行查询
+        result = await db.execute(query)
+        posts = result.scalars().all()
+
+        # 获取侧边栏数据
+        sidebar_data = await get_sidebar_data(db)
+
+        # 计算分页数据
+        total_pages = math.ceil(total / per_page) if total > 0 else 0
+
+        return templates.TemplateResponse(
+            "index.html",
+            {
+                "request": request,
+                "posts": posts,
+                "page": page,
+                "per_page": per_page,
+                "total": total,
+                "total_pages": total_pages,
+                "has_next": page < total_pages,
+                "has_prev": page > 1,
+                "sort": sort,
+                "category_id": category_id,
+                "tag_name": tag_name,
+                "categories": sidebar_data["categories"],
+                "tags": sidebar_data["tags"],
+                "popular_posts": sidebar_data["popular_posts"],
+                "current_year": datetime.now().year
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error in index page: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/post/{slug}", response_class=HTMLResponse)
-async def post_detail(request: Request, slug: str, db: AsyncSession = Depends(get_db)):
+@limiter.limit("60/minute")
+async def post_detail(
+        request: Request,
+        slug: str,
+        db: AsyncSession = Depends(get_db)
+):
     """文章详情页 - 包含阅读量统计和相关文章"""
-    # 查询文章
-    query = select(Post).options(
-        selectinload(Post.comments).selectinload(Comment.author),
-        selectinload(Post.tags),
-        selectinload(Post.category),
-        selectinload(Post.author)
-    ).where(Post.slug == slug, Post.published == True)
+    try:
+        # 查询文章 - 优化查询
+        query = select(Post).options(
+            selectinload(Post.comments).selectinload(Comment.author),
+            selectinload(Post.tags),
+            selectinload(Post.category),
+            selectinload(Post.author)
+        ).where(Post.slug == slug, Post.published == True)
 
-    result = await db.execute(query)
-    post = result.scalars().first()
+        result = await db.execute(query)
+        post = result.scalars().first()
 
-    if not post:
+        if not post:
+            return templates.TemplateResponse(
+                "404.html",
+                {"request": request, "current_year": datetime.now().year},
+                status_code=404
+            )
+
+        # 异步更新阅读量
+        await update_post_views(db, post)
+
+        # 获取相关文章
+        related_posts = await get_related_posts(db, post)
+
+        # 获取文章统计
+        stats = await get_post_stats(db, post)
+
         return templates.TemplateResponse(
-            "404.html",
-            {"request": request, "current_year": datetime.now().year},
-            status_code=404
+            "post.html",
+            {
+                "request": request,
+                "post": post,
+                "related_posts": related_posts,
+                "stats": stats,
+                "current_year": datetime.now().year
+            }
         )
+    except Exception as e:
+        logger.error(f"Error in post detail: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
-    # 更新阅读量
+
+async def get_sidebar_data(db: AsyncSession) -> dict:
+    """获取侧边栏数据"""
+    # 获取分类及文章数
+    cat_query = select(
+        Category,
+        func.count(Post.id).label('post_count')
+    ).outerjoin(Post).group_by(Category.id)
+    cat_result = await db.execute(cat_query)
+    categories = cat_result.all()
+
+    # 获取标签
+    tag_query = select(Tag).limit(20)
+    tag_result = await db.execute(tag_query)
+    tags = tag_result.scalars().all()
+
+    # 获取热门文章
+    popular_query = select(Post).where(
+        Post.published == True
+    ).order_by(Post.views.desc()).limit(5)
+    popular_result = await db.execute(popular_query)
+    popular_posts = popular_result.scalars().all()
+
+    return {
+        "categories": categories,
+        "tags": tags,
+        "popular_posts": popular_posts
+    }
+
+
+async def update_post_views(db: AsyncSession, post: Post):
+    """异步更新文章阅读量"""
     post.views = (post.views or 0) + 1
     await db.commit()
 
-    # 查询相关文章
-    related_query = select(Post).where(
+
+async def get_related_posts(db: AsyncSession, post: Post, limit: int = 5):
+    """获取相关文章"""
+    # 基于相同分类或标签的相关文章
+    tag_ids = [tag.id for tag in post.tags]
+
+    query = select(Post).where(
         and_(
             Post.id != post.id,
             Post.published == True,
             or_(
                 Post.category_id == post.category_id,
-                Post.author_id == post.author_id
+                Post.tags.any(Tag.id.in_(tag_ids)) if tag_ids else False
             )
         )
-    ).limit(5)
+    ).order_by(func.random()).limit(limit)
 
-    related_result = await db.execute(related_query)
-    related_posts = related_result.scalars().all()
+    result = await db.execute(query)
+    return result.scalars().all()
 
-    # 返回数据
-    return templates.TemplateResponse(
-        "post.html",
-        {
-            "request": request,
-            "post": post,
-            "related_posts": related_posts,
-            "current_year": datetime.now().year
-        }
+
+async def get_post_stats(db: AsyncSession, post: Post) -> dict:
+    """获取文章统计信息"""
+    # 评论数
+    comment_count = await db.execute(
+        select(func.count(Comment.id)).where(Comment.post_id == post.id)
     )
 
+    # 预计阅读时间（假设每分钟阅读200字）
+    word_count = len(post.content)
+    read_time = max(1, word_count // 200)
 
+    return {
+        "comment_count": comment_count.scalar_one(),
+        "word_count": word_count,
+        "read_time": read_time
+    }
+
+
+# 其他页面路由
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """登录页面"""
@@ -207,89 +327,121 @@ async def dashboard(
         db: AsyncSession = Depends(get_db)
 ):
     """仪表盘页面（需要登录）"""
-    # 获取用户文章统计
-    total_posts = await db.execute(
-        select(func.count(Post.id)).where(Post.author_id == current_user.id)
-    )
-    total_posts = total_posts.scalar_one()
-
-    published_posts = await db.execute(
-        select(func.count(Post.id)).where(
-            (Post.author_id == current_user.id) & (Post.published == True)
-        )
-    )
-    published_posts = published_posts.scalar_one()
-
-    draft_posts = await db.execute(
-        select(func.count(Post.id)).where(
-            (Post.author_id == current_user.id) & (Post.published == False)
-        )
-    )
-    draft_posts = draft_posts.scalar_one()
+    # 获取用户统计数据
+    stats = await get_user_dashboard_stats(db, current_user)
 
     # 获取最近文章
-    recent_posts = await db.execute(
-        select(Post)
-        .where(Post.author_id == current_user.id)
-        .order_by(Post.created_at.desc())
-        .limit(5)
-    )
-    recent_posts = recent_posts.scalars().all()
+    recent_posts_query = select(Post).where(
+        Post.author_id == current_user.id
+    ).order_by(Post.created_at.desc()).limit(10)
+
+    recent_posts_result = await db.execute(recent_posts_query)
+    recent_posts = recent_posts_result.scalars().all()
 
     return templates.TemplateResponse(
         "dashboard.html",
         {
             "request": request,
             "current_user": current_user,
-            "total_posts": total_posts,
-            "published_posts": published_posts,
-            "draft_posts": draft_posts,
+            **stats,
             "recent_posts": recent_posts,
             "current_year": datetime.now().year
         }
     )
 
 
-@app.get("/dashboard/posts/new", response_class=HTMLResponse)
-async def new_post_page(request: Request):
-    """新建文章页面"""
-    return templates.TemplateResponse(
-        "new_post.html",
-        {"request": request, "current_year": datetime.now().year}
+async def get_user_dashboard_stats(db: AsyncSession, user: User) -> dict:
+    """获取用户仪表盘统计数据"""
+    # 总文章数
+    total_posts = await db.execute(
+        select(func.count(Post.id)).where(Post.author_id == user.id)
     )
+
+    # 已发布文章数
+    published_posts = await db.execute(
+        select(func.count(Post.id)).where(
+            and_(Post.author_id == user.id, Post.published == True)
+        )
+    )
+
+    # 草稿数
+    draft_posts = await db.execute(
+        select(func.count(Post.id)).where(
+            and_(Post.author_id == user.id, Post.published == False)
+        )
+    )
+
+    # 总阅读量
+    total_views = await db.execute(
+        select(func.sum(Post.views)).where(Post.author_id == user.id)
+    )
+
+    # 总评论数
+    total_comments = await db.execute(
+        select(func.count(Comment.id)).join(Post).where(Post.author_id == user.id)
+    )
+
+    return {
+        "total_posts": total_posts.scalar_one(),
+        "published_posts": published_posts.scalar_one(),
+        "draft_posts": draft_posts.scalar_one(),
+        "total_views": total_views.scalar_one() or 0,
+        "total_comments": total_comments.scalar_one()
+    }
 
 
 @app.get("/search", response_class=HTMLResponse)
+@limiter.limit("20/minute")
 async def search(
         request: Request,
-        q: str = Query(None),
+        q: str = Query(None, min_length=1, max_length=100),
         category: Optional[str] = None,
         tag: Optional[str] = None,
+        page: int = Query(1, ge=1),
         db: AsyncSession = Depends(get_db)
 ):
-    """搜索页面 - 支持关键词、分类和标签筛选"""
-    query = select(Post).where(Post.published == True)
+    """搜索页面 - 支持全文搜索"""
+    posts = []
+    total = 0
 
-    # 全文搜索
-    if q:
-        query = query.where(
-            or_(
-                Post.title.ilike(f"%{q}%"),
-                Post.content.ilike(f"%{q}%")
+    if q or category or tag:
+        query = select(Post).options(
+            selectinload(Post.author),
+            selectinload(Post.category),
+            selectinload(Post.tags)
+        ).where(Post.published == True)
+
+        # 全文搜索
+        if q:
+            search_term = f"%{q}%"
+            query = query.where(
+                or_(
+                    Post.title.ilike(search_term),
+                    Post.content.ilike(search_term)
+                )
             )
-        )
 
-    # 分类筛选
-    if category:
-        query = query.join(Category).filter(Category.name == category)
+        # 分类筛选
+        if category:
+            query = query.join(Category).where(Category.name == category)
 
-    # 标签筛选
-    if tag:
-        query = query.join(post_tag).join(Tag).filter(Tag.name == tag)
+        # 标签筛选
+        if tag:
+            query = query.join(post_tag).join(Tag).where(Tag.name == tag)
 
-    # 执行查询
-    result = await db.execute(query)
-    posts = result.scalars().all()
+        # 计算总数
+        count_query = select(func.count()).select_from(query.subquery())
+        total_result = await db.execute(count_query)
+        total = total_result.scalar_one()
+
+        # 分页
+        per_page = settings.DEFAULT_PAGE_SIZE
+        offset = (page - 1) * per_page
+        query = query.offset(offset).limit(per_page)
+
+        # 执行查询
+        result = await db.execute(query)
+        posts = result.scalars().all()
 
     return templates.TemplateResponse(
         "search.html",
@@ -299,30 +451,83 @@ async def search(
             "query": q,
             "category": category,
             "tag": tag,
+            "page": page,
+            "total": total,
             "current_year": datetime.now().year
         }
     )
 
 
-# 添加超级管理员账号创建函数
+# 启动事件
 @app.on_event("startup")
+async def startup_event():
+    """应用启动时执行"""
+    logger.info(f"Starting {settings.PROJECT_NAME}")
+
+    # 创建默认管理员账号
+    await create_admin_user()
+
+    # 初始化缓存
+    from app.core.redis import get_redis_connection
+    try:
+        redis = await get_redis_connection()
+        await redis.ping()
+        await redis.close()
+        logger.info("Redis connection successful")
+    except Exception as e:
+        logger.error(f"Redis connection failed: {e}")
+
+
 async def create_admin_user():
     """在应用启动时创建超级管理员账号（如果不存在）"""
     async with async_session() as db:
-        # 检查admin账号是否已存在
-        query = select(User).where(User.email == "admin@example.com")
-        result = await db.execute(query)
-        admin_user = result.scalars().first()
+        try:
+            # 检查admin账号是否已存在
+            query = select(User).where(User.email == settings.ADMIN_EMAIL)
+            result = await db.execute(query)
+            admin_user = result.scalars().first()
 
-        if not admin_user:
-            # 创建超级管理员账号
-            admin = User(
-                email="admin@example.com",
-                username="admin",
-                hashed_password=get_password_hash("Admin123!"),
-                is_active=True,
-                is_superuser=True
-            )
-            db.add(admin)
-            await db.commit()
-            print("🔑 已创建超级管理员账号 - 用户名: admin, 密码: Admin123!")
+            if not admin_user:
+                # 创建超级管理员账号
+                admin = User(
+                    email=settings.ADMIN_EMAIL,
+                    username=settings.ADMIN_USERNAME,
+                    hashed_password=get_password_hash(settings.ADMIN_PASSWORD),
+                    is_active=True,
+                    is_superuser=True
+                )
+                db.add(admin)
+                await db.commit()
+                logger.info(f"Created admin user: {settings.ADMIN_USERNAME}")
+            else:
+                logger.info("Admin user already exists")
+        except Exception as e:
+            logger.error(f"Error creating admin user: {e}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """应用关闭时执行"""
+    logger.info(f"Shutting down {settings.PROJECT_NAME}")
+
+
+# 错误处理
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc):
+    """404错误处理"""
+    return templates.TemplateResponse(
+        "404.html",
+        {"request": request, "current_year": datetime.now().year},
+        status_code=404
+    )
+
+
+@app.exception_handler(500)
+async def server_error_handler(request: Request, exc):
+    """500错误处理"""
+    logger.error(f"Server error: {exc}")
+    return templates.TemplateResponse(
+        "500.html",
+        {"request": request, "current_year": datetime.now().year},
+        status_code=500
+    )
