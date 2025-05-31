@@ -26,6 +26,7 @@ export async function getAllPosts() {
   const fetchPages = []
   for (let page = 0; page < totalPages; page++) {
     const url = `${process.env.BACKEND_URI}/posts?page=${page}&size=${PAGE_SIZE}`
+
     fetchPages.push(fetch(url).then(res => res.json()))
   }
 
