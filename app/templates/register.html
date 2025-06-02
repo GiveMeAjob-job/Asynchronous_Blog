@@ -3,50 +3,48 @@
 {% block title %}注册 - Async Blog{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header text-center">
-                <h4>注册新账号</h4>
-            </div>
-            <div class="card-body">
-                <div class="alert alert-danger d-none" id="register-error"></div>
-                
-                <form id="register-form">
-                    <div class="mb-3">
-                        <label for="username" class="form-label">用户名</label>
-                        <input type="text" class="form-control" id="username" required>
-                        <div class="form-text">用户名只能包含字母、数字和下划线</div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="email" class="form-label">邮箱</label>
-                        <input type="email" class="form-control" id="email" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="password" class="form-label">密码</label>
-                        <input type="password" class="form-control" id="password" required>
-                        <div class="form-text">密码至少8个字符，包含大小写字母和数字</div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="confirm-password" class="form-label">确认密码</label>
-                        <input type="password" class="form-control" id="confirm-password" required>
-                    </div>
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="agree-terms" required>
-                        <label class="form-check-label" for="agree-terms">我同意网站的<a href="#">服务条款</a>和<a href="#">隐私政策</a></label>
-                    </div>
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary">注册</button>
-                    </div>
-                </form>
-                
-                <hr>
-                
-                <div class="text-center">
-                    <p>已有账号？ <a href="/login">立即登录</a></p>
-                </div>
-            </div>
+<div class="form-container mt-section"> {# 与 login.html 相同的表单容器 #}
+    <header class="form-header text-center mb-4">
+        <h2 class="section-title">注册新账号</h2>
+    </header>
+
+    {# 1. 错误提示: 使用自定义的 .form-message.error #}
+    <div class="form-message error d-none" id="register-error"></div>
+
+    <form id="register-form">
+        <div class="mb-3">
+            <label for="username" class="form-label">用户名</label>
+            <input type="text" class="form-control" id="username" required placeholder="字母、数字、下划线">
+            {# 2. 表单提示文字: 如果需要，为其定义样式或使用 .text-muted #}
+            <div class="form-text small text-muted mt-1">用户名只能包含字母、数字和下划线</div>
         </div>
+        <div class="mb-3">
+            <label for="email" class="form-label">邮箱</label>
+            <input type="email" class="form-control" id="email" required placeholder="you@example.com">
+        </div>
+        <div class="mb-3">
+            <label for="password" class="form-label">密码</label>
+            <input type="password" class="form-control" id="password" required placeholder="至少8位，含大小写字母和数字">
+            <div class="form-text small text-muted mt-1">密码至少8个字符，包含大小写字母和数字</div>
+        </div>
+        <div class="mb-3">
+            <label for="confirm-password" class="form-label">确认密码</label>
+            <input type="password" class="form-control" id="confirm-password" required placeholder="再次输入密码">
+        </div>
+        <div class="mb-3 form-check"> {# .form-check 可能需要新的样式 #}
+            <input type="checkbox" class="form-check-input" id="agree-terms" required>
+            <label class="form-check-label" for="agree-terms">我同意网站的<a href="#" class="text-primary">服务条款</a>和<a href="#" class="text-primary">隐私政策</a></label>
+        </div>
+        <div class="d-grid mt-4">
+            {# 3. 提交按钮: 应用新 CSS 的 .btn .btn-primary #}
+            <button type="submit" class="btn btn-primary w-100">注册</button>
+        </div>
+    </form>
+
+    <hr class="my-4 form-divider">
+
+    <div class="text-center form-footer-links">
+        <p class="text-secondary">已有账号？ <a href="{{ url_for('login_page') }}" class="text-primary">立即登录</a></p>
     </div>
 </div>
 {% endblock %}
@@ -54,4 +52,3 @@
 {% block extra_js %}
 <script src="{{ url_for('static', path='js/register.js') }}"></script>
 {% endblock %}
-

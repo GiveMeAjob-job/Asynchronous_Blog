@@ -3,40 +3,42 @@
 {% block title %}登录 - Async Blog{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header text-center">
-                <h4>登录</h4>
-            </div>
-            <div class="card-body">
-                <div class="alert alert-danger d-none" id="login-error"></div>
-                
-                <form id="login-form">
-                    <div class="mb-3">
-                        <label for="email" class="form-label">邮箱</label>
-                        <input type="email" class="form-control" id="email" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="password" class="form-label">密码</label>
-                        <input type="password" class="form-control" id="password" required>
-                    </div>
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="remember-me">
-                        <label class="form-check-label" for="remember-me">记住我</label>
-                    </div>
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary">登录</button>
-                    </div>
-                </form>
-                
-                <hr>
-                
-                <div class="text-center">
-                    <p>还没有账号？ <a href="/register">立即注册</a></p>
-                </div>
-            </div>
+{# 1. 移除 .row .justify-content-center .col-md-6 和 .card #}
+{# 直接使用一个居中的表单容器 #}
+<div class="form-container mt-section"> {# .form-container 需要在 style.css 中定义样式，用于居中和最大宽度 #}
+    <header class="form-header text-center mb-4">
+        <h2 class="section-title">登录您的账户</h2>
+    </header>
+
+    {# 2. 错误提示: 移除 .alert .alert-danger, 使用自定义的错误提示样式 #}
+    <div class="form-message error d-none" id="login-error"></div>
+    {# 您需要在 style.css 中为 .form-message.error 定义样式 #}
+
+    <form id="login-form">
+        <div class="mb-3">
+            {# 3. 表单标签和输入框: 依赖新 CSS 中 .form-label 和 .form-control 的样式 #}
+            <label for="email" class="form-label">邮箱</label>
+            <input type="email" class="form-control" id="email" required placeholder="you@example.com">
         </div>
+        <div class="mb-3">
+            <label for="password" class="form-label">密码</label>
+            <input type="password" class="form-control" id="password" required placeholder="请输入密码">
+        </div>
+        <div class="mb-3 form-check"> {# .form-check 可能也需要新的样式 #}
+            <input type="checkbox" class="form-check-input" id="remember-me">
+            <label class="form-check-label" for="remember-me">记住我</label>
+        </div>
+        <div class="d-grid mt-4"> {# .d-grid 和 .mt-4 可以保留或用新CSS实现 #}
+            {# 4. 提交按钮: 应用新 CSS 中的 .btn .btn-primary #}
+            <button type="submit" class="btn btn-primary w-100">登录</button>
+        </div>
+    </form>
+
+    <hr class="my-4 form-divider"> {# .form-divider 需要在 style.css 中定义样式 #}
+
+    <div class="text-center form-footer-links">
+        <p class="text-secondary">还没有账号？ <a href="{{ url_for('register_page') }}" class="text-primary">立即注册</a></p>
+         {# .text-secondary 和 .text-primary 应该使用新CSS定义的颜色变量 #}
     </div>
 </div>
 {% endblock %}
@@ -44,4 +46,3 @@
 {% block extra_js %}
 <script src="{{ url_for('static', path='js/login.js') }}"></script>
 {% endblock %}
-

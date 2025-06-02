@@ -4,17 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Async Blog{% endblock %}</title>
-    {# Use CDN for bootstrap to avoid missing static files #}
-<link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
 
+    {# 1. 移除 Bootstrap CSS 链接 (如果您决定完全依赖新的 style.css) #}
+
+    {# 2. 添加新 CSS 中指定的字体 (例如 Montserrat) #}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+    {# 您可以根据新 style.css 中 --font-primary 和 --font-heading 的定义调整这里的字体链接 #}
+
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="/">Async Blog</a>
+    {# 3. Navbar: 应用新 CSS 中的 .navbar 类样式。移除 Bootstrap 的 bg-primary 和 navbar-dark #}
+    <nav class="navbar navbar-expand-lg">
+<div class="container"> {# Bootstrap .container 可以保留用于布局约束 #}
+    <a class="navbar-brand" href="/">Async Blog</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
+                <span class="navbar-toggler-icon"></span> {# 这个图标可能需要自定义样式或替换为SVG图标以匹配深色主题 #}
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
@@ -28,16 +36,21 @@
                         <a class="nav-link" href="/#tags">标签</a>
                     </li>
                 </ul>
-                <div class="d-flex">
+                <div class="d-flex"> {# d-flex 可以保留用于布局 #}
                     <div id="auth-buttons">
-                        <a href="/login" class="btn btn-outline-light me-2">登录</a>
-                        <a href="/register" class="btn btn-light">注册</a>
+                        {# 4. Navbar 按钮: 移除 Bootstrap 按钮类，使用新 CSS 中的 .btn 或自定义链接样式 #}
+                        {# 例如，如果新 CSS 中没有 .btn-outline-light 或 .btn-light, 它们会失效 #}
+                        {# 您可以将它们改为普通链接，让 .nav-link 的样式或新的按钮样式接管 #}
+                        <a href="/login" class="nav-link me-2">登录</a> {# 或 class="btn btn-custom-outline" #}
+                        <a href="/register" class="nav-link">注册</a>   {# 或 class="btn btn-custom-primary" #}
                     </div>
                     <div id="user-menu" class="d-none">
                         <div class="dropdown">
-                            <button class="btn btn-light dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown">
+                             {# 5. 用户下拉菜单按钮: 移除 btn-light，依赖新CSS的按钮或链接样式 #}
+                            <button class="nav-link dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown">
                                 <span id="username">用户</span>
                             </button>
+                             {# 下拉菜单项的样式会由新CSS控制，或需要微调 #}
                             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                                 <li><a class="dropdown-item" href="/dashboard">仪表盘</a></li>
                                 <li><a class="dropdown-item" href="/dashboard/posts/new">写文章</a></li>
@@ -51,19 +64,42 @@
         </div>
     </nav>
 
+    {# 6. Hero Section (可选，根据您的新 CSS) #}
+    {# 如果您想在所有页面或特定页面 (如首页) 添加 .hero-section，可以在这里或 index.html 中添加 #}
+    {% block hero_section %}
+    {# 示例:
+    <section class="hero-section">
+        <div class="hero-content">
+            <h1 class="hero-title">探索异步的世界</h1>
+            <p class="hero-subtitle">一个用 FastAPI 和爱构建的博客</p>
+        </div>
+    </section>
+    #}
+    {% endblock hero_section %}
+
+
+    {# 7. Main Content: Bootstrap .container 和 .py-4 可以保留用于基本布局和间距，或用新CSS的间距变量替代 #}
     <main class="container py-4">
         {% block content %}{% endblock %}
     </main>
 
-    <footer class="bg-light py-4 mt-4">
-        <div class="container text-center">
+    {# 8. Footer: 移除 bg-light，应用新 CSS 的 footer 样式 #}
+    <footer>
+        <div class="container footer-content"> {# 使用新CSS中的 .footer-content #}
+            {# 您可以在新 CSS 中为 .footer-links 创建样式，或者在这里直接写链接 #}
+            <div class="footer-links mb-3">
+                <a href="#" class="footer-link">关于我们</a>
+                <a href="#" class="footer-link">联系方式</a>
+                <a href="#" class="footer-link">隐私政策</a>
+            </div>
             <p class="mb-0">&copy; {{ current_year }} Async Blog. All rights reserved.</p>
         </div>
     </footer>
 
-    {# Bootstrap and axios via CDN to match functionality #}
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-jxk/yVdZDEuAbSU/EYEYV/vpXCMVvjJAnCmvYzu3/n6PvJEa3TBUnIFJQGryuVWN" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.8/dist/axios.min.js" integrity="sha384-2AAobP6KyHR+Y6z3Y0JVpaz6RtWLpmjHtkobaN6D+PfYZ7R6pujISiFDUFxu05o2" crossorigin="anonymous"></script>
+    {# Bootstrap JS 仍然可以保留，用于下拉菜单、折叠导航等功能 #}
+    {# 如果您完全移除了 Bootstrap CSS，某些JS组件可能看起来没有样式或不协调，需要用新CSS调整 #}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios@1.6.8/dist/axios.min.js" integrity="sha384-ftvHQsVsFt/CYVdJ1acqn4sKGIZ77bziRNFfeph9Ww9C4vQa5zY/ev4cfR5vyYrZ" crossorigin="anonymous"></script>
     <script src="{{ url_for('static', path='js/main.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>

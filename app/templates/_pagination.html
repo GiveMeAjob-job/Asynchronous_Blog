@@ -1,0 +1,50 @@
+{% if total_pages > 1 %}
+<nav aria-label="Page navigation" class="mt-section">
+    <ul class="pagination justify-content-center"> {# Ensure .pagination, .page-item, .page-link are styled in your new style.css #}
+
+        {# Previous Page Link #}
+        {% if has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for(request.url.endpoint, page=page-1, q=request.query_params.get('q'), category_id=request.query_params.get('category_id'), tag_name=request.query_params.get('tag_name'), sort=request.query_params.get('sort')) }}">
+                    上一页
+                </a>
+            </li>
+        {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">上一页</span>
+            </li>
+        {% endif %}
+
+        {# Page Number Links #}
+        {# This is a simplified pagination display. You can make it more complex (e.g., with ellipses for many pages) if needed. #}
+        {% for p in range(1, total_pages + 1) %}
+            {% if p == page %}
+                <li class="page-item active" aria-current="page">
+                    <span class="page-link">{{ p }}</span>
+                </li>
+            {% elif p >= page - 2 and p <= page + 2 %} {# Show a few pages around the current page #}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for(request.url.endpoint, page=p, q=request.query_params.get('q'), category_id=request.query_params.get('category_id'), tag_name=request.query_params.get('tag_name'), sort=request.query_params.get('sort')) }}">
+                        {{ p }}
+                    </a>
+                </li>
+            {% elif p == page - 3 or p == page + 3 %}
+                 <li class="page-item disabled"><span class="page-link">...</span></li>
+            {% endif %}
+        {% endfor %}
+
+        {# Next Page Link #}
+        {% if has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for(request.url.endpoint, page=page+1, q=request.query_params.get('q'), category_id=request.query_params.get('category_id'), tag_name=request.query_params.get('tag_name'), sort=request.query_params.get('sort')) }}">
+                    下一页
+                </a>
+            </li>
+        {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">下一页</span>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}

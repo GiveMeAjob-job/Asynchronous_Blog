@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from app.models import Tag, post_tag # Ensure Tag is imported
+from app.models.tag import Tag, post_tag # Ensure Tag is imported
 from sqlalchemy.orm import selectinload
 
 # 导入相关模块

@@ -1,87 +1,1385 @@
-/* 基本样式 */
+/* ===========================
+   基础重置和变量
+   =========================== */
 :root {
-    --color-dark: #212529;
-    --color-light-bg: #f8f9fa;
-    --color-text-primary: #343a40;
-    --color-text-secondary: #6c757d;
-    --font-heading: 'Montserrat', sans-serif;
-    --font-body: 'Open Sans', sans-serif;
+  /* 色彩系统 */
+  --color-dark-bg: #1a1a1a;
+  --color-card-bg: #2a2a2a;
+  --color-primary: #ff6b6b;
+  --color-primary-hover: #ff5252;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #b8b8b8;
+  --color-text-muted: #888888;
+  --color-border: #3a3a3a;
+  --color-overlay: rgba(0, 0, 0, 0.6);
+
+  /* 间距系统 */
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 1rem;
+  --spacing-md: 1.5rem;
+  --spacing-lg: 2rem;
+  --spacing-xl: 3rem;
+  --spacing-xxl: 4rem;
+
+  /* 字体系统 */
+  --font-primary: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-heading: 'Montserrat', var(--font-primary);
+
+  /* 阴影系统 */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.2);
+
+  /* 过渡动画 */
+  --transition-fast: 0.2s ease;
+  --transition-normal: 0.3s ease;
+  --transition-slow: 0.5s ease;
+
+  /* 新增：导航栏高度变量，用于sticky定位等 */
+  --navbar-height: 70px; /* 您可以根据实际导航栏高度调整 */
+}
+
+/* ===========================
+   基础样式
+   =========================== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 body {
-    line-height: 1.6;
-    background-color: #f8f9fa; /* Or a similar light shade */
-    font-family: 'YourChosenBodyFont', sans-serif;
-    color: #333; /* Adjust as needed, maybe a darker gray */
+  font-family: var(--font-primary);
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  background-color: var(--color-dark-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  padding-top: var(--navbar-height); /* 为 sticky navbar 预留空间 */
 }
 
-.blog-post {
-    margin-bottom: 30px;
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--color-primary-hover);
+  text-decoration: underline;
 }
 
-.blog-post-title {
-    margin-bottom: 5px;
-    font-weight: bold;
-}
-
-.blog-post-meta {
-    margin-bottom: 20px;
-    color: #6c757d;
-}
-
-.markdown-body {
-    padding: 15px 0;
-}
-
-/* 评论样式 */
-#comments {
-    margin-top: 40px;
-}
-
-/* 标签云样式 */
-.badge {
-    margin: 3px;
-}
-
-h1, h2, h3 { /* Or specific classes for titles */
-    font-family: 'YourChosenHeadingFont', sans-serif;
-    font-weight: bold; /* Or specific weight */
-    color: #212529; /* Dark charcoal */
-}
-.post-title-main { /* Example for a large title like "Devcliorments" */
-    font-size: 2.5rem; /* Adjust as needed */
-    margin-bottom: 1rem;
-}
-
+/* ===========================
+   导航栏样式 (Navbar Styles)
+   =========================== */
 .navbar {
-    background-color: #212529 !important; /* Dark charcoal */
-    padding: 1rem 0; /* Adjust padding */
-}
-.navbar .navbar-brand, .navbar .nav-link {
-    color: #f8f9fa !important; /* Light text color */
-    text-transform: uppercase; /* Optional, as in image */
-    font-size: 0.9rem; /* Adjust */
-}
-.navbar .nav-link:hover {
-    color: #adb5bd !important; /* Lighter gray on hover */
+  background-color: rgba(26, 26, 26, 0.95); /* 深色背景 */
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--color-border);
+  position: fixed; /* 改为 fixed 或 sticky 以固定在顶部 */
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  transition: all var(--transition-normal);
+  padding: 0 var(--spacing-sm); /* 调整内边距 */
+  height: var(--navbar-height);
+  display: flex; /* 添加Flexbox */
+  align-items: center; /* 垂直居中 */
 }
 
-.btn-custom-dark {
-    background-color: #212529; /* Dark charcoal */
-    color: #f8f9fa;
-    border: 1px solid #212529;
-    padding: 0.75rem 1.5rem;
-    text-transform: uppercase;
-    font-weight: bold;
-    letter-spacing: 0.05em;
-    border-radius: 0; /* Sharp corners */
+/* 如果您在 <nav> 下面有一个 .container 来限制宽度 */
+.navbar .container {
+    display: flex;
+    justify-content: space-between; /* 品牌在左，其他在右 */
+    align-items: center;
+    width: 100%;
+}
+
+.navbar-brand {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--color-text-primary) !important;
+  transition: transform var(--transition-fast);
+  margin-right: var(--spacing-lg); /* 和导航项的间距 */
+}
+
+.navbar-brand:hover {
+  transform: translateX(5px); /* 您的原有悬停效果 */
+}
+
+/* Bootstrap HTML 结构中的 .navbar-nav (ul 标签) */
+.navbar-nav {
+  display: flex; /* 使 li 水平排列 */
+  flex-direction: row;
+  padding-left: 0;
+  margin-bottom: 0;
+  list-style: none;
+  align-items: center; /* 确保导航项垂直居中 */
+}
+
+/* Bootstrap HTML 结构中的 .nav-item (li 标签) */
+.nav-item {
+  margin-left: var(--spacing-xs); /* 导航项之间的间距 */
+  margin-right: var(--spacing-xs);
+}
+
+.nav-link {
+  color: var(--color-text-secondary) !important;
+  font-weight: 500;
+  padding: var(--spacing-sm) var(--spacing-md) !important; /* 调整内边距 */
+  position: relative;
+  transition: color var(--transition-fast);
+  display: block; /* 确保padding生效 */
+  text-decoration: none; /* 移除下划线 */
+}
+
+.nav-link.dropdown-toggle {
+    background-color: transparent !important; /* 移除按钮背景 */
+    border: none !important; /* 移除按钮边框 */
+    /* 它会继承 .nav-link 的颜色和部分内边距，可以按需调整 */
+    /* 如果需要，可以明确设置颜色使其与其他 nav-link 一致 */
+    color: var(--color-text-secondary) !important;
+}
+.nav-link.dropdown-toggle:hover {
+    color: var(--color-text-primary) !important;
+     background-color: transparent !important; /* 确保悬停时也没有不想要的背景 */
+}
+/* 当下拉菜单展开时，Bootstrap JS 会给按钮添加 .show 类 */
+.nav-link.dropdown-toggle.show {
+    color: var(--color-text-primary) !important; /* 例如，展开时文字更亮 */
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0; /* 或者调整为 calc(var(--spacing-sm) - 8px) 等，使其在padding内部 */
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background-color: var(--color-primary);
+  transform: translateX(-50%);
+  transition: width var(--transition-normal);
+}
+
+.nav-link:hover {
+  color: var(--color-text-primary) !important;
+}
+
+.nav-link:hover::after {
+  width: 80%;
+}
+
+/* 导航栏右侧的按钮/用户菜单区域 */
+.navbar .d-flex { /* 如果您保留了这个 Bootstrap 类用于包裹右侧元素 */
+    display: flex;
+    align-items: center;
+}
+
+#auth-buttons a.nav-link { /* 登录注册按钮如果也用 nav-link 类 */
+    margin-left: var(--spacing-sm);
+}
+
+/* Navbar Toggler for mobile */
+.navbar-toggler {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 1.25rem;
+    line-height: 1;
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: .25rem;
+    border-color: rgba(255,255,255,0.2); /* 浅色边框 */
+    color: rgba(255,255,255,0.75); /* 浅色文字/图标 */
+}
+
+.navbar-toggler-icon {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.75%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important; /* 浅色图标 */
+    width: 1.5em;
+    height: 1.5em;
+    display: inline-block;
+    vertical-align: middle;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 100%;
+}
+
+/* Dropdown menu styling for dark theme */
+/* Dropdown menu styling for dark theme */
+.dropdown-menu {
+    background-color: var(--color-card-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-md);
+    display: none; /* 确保默认隐藏 */
+    position: absolute;
+    inset: 0px auto auto 0px;
+    margin: .125rem 0 0;
+    font-size: 1rem;
+    list-style: none;
+    padding: var(--spacing-xs) 0; /* 为菜单项添加一些上下内边距 */
+    z-index: 1001; /* 比 navbar 高一点，确保在上面 */
+}
+
+.dropdown-menu.show {
+    display: block; /* 当 Bootstrap JS 添加 .show 类时显示 */
+}
+.dropdown-item {
+    color: var(--color-text-secondary);
+    padding: var(--spacing-xs) var(--spacing-lg);
+}
+.dropdown-item:hover, .dropdown-item:focus {
+    color: var(--color-text-primary);
+    background-color: rgba(255, 107, 107, 0.1); /* 使用主色的浅色背景作为悬停效果 */
+}
+.dropdown-divider {
+    border-top: 1px solid var(--color-border);
+}
+
+
+/* ===========================
+   英雄区域样式 (Hero Section Styles)
+   =========================== */
+.hero-section {
+  position: relative;
+  min-height: 400px; /* 确保有一个最小高度 */
+  height: calc(70vh - var(--navbar-height)); /* 考虑导航栏高度 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin-bottom: var(--spacing-xxl);
+}
+
+.hero-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.1) 0%, rgba(26, 26, 26, 0.9) 100%);
+  z-index: 1;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  max-width: 800px;
+  padding: 0 var(--spacing-lg);
+}
+
+.hero-title {
+  font-family: var(--font-heading);
+  font-size: clamp(2.5rem, 5vw, 3.5rem); /* 调整大小 */
+  font-weight: 800;
+  margin-bottom: var(--spacing-md);
+  letter-spacing: -1px;
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+}
+
+.hero-subtitle {
+  font-family: var(--font-primary);
+  font-size: clamp(1rem, 2.5vw, 1.25rem); /* 调整大小 */
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-lg);
+  max-width: 600px; /* 限制副标题宽度，使其更易读 */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ===========================
+   通用页面/区域标题 (General Page/Section Titles)
+   =========================== */
+.section-title {
+    font-family: var(--font-heading);
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+    text-align: center; /* 或者根据需要调整 */
+}
+
+.page-header { /* 用于包裹页面主标题的容器 */
+    margin-bottom: var(--spacing-xl);
+}
+
+
+/* ===========================
+   卡片样式 (Card Styles)
+   =========================== */
+.card {
+  background-color: var(--color-card-bg);
+  border: 1px solid var(--color-border); /* 添加细微边框 */
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all var(--transition-normal);
+  height: 100%; /* 确保在使用 flex/grid 布局时卡片等高 */
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-sm); /* 初始添加一点阴影 */
+}
+
+.card:hover {
+  transform: translateY(-5px) scale(1.01); /* 轻微放大效果 */
+  box-shadow: var(--shadow-lg);
+}
+
+.card-img-wrapper {
+  position: relative;
+  overflow: hidden;
+  height: 250px; /* 或使用 aspect-ratio */
+  /* aspect-ratio: 16 / 9; */
+  background-color: #333; /* 图片加载时的占位背景 */
+}
+
+.card-img-top {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--transition-slow);
+}
+
+.card:hover .card-img-top {
+  transform: scale(1.05);
+}
+
+.card-body {
+  padding: var(--spacing-lg);
+  flex-grow: 1; /* 允许 card-body 占据剩余空间 */
+  display: flex;
+  flex-direction: column;
+}
+
+.card-title {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: var(--spacing-sm);
+  line-height: 1.3;
+  color: var(--color-text-primary);
+}
+.card-title a { /* 卡片标题内的链接样式 */
+    color: inherit; /* 继承卡片标题颜色 */
     text-decoration: none;
 }
-.btn-custom-dark:hover {
-    background-color: #343a40;
-    color: #f8f9fa;
+.card-title a:hover {
+    color: var(--color-primary);
+    text-decoration: underline;
 }
 
-img.desaturated-style {
-    filter: grayscale(50%) sepia(20%); /* Adjust values to taste */
+
+.card-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap; /* 允许元数据换行 */
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+.card-meta span, .card-meta a { /* 元数据项样式 */
+    display: inline-flex; /* 使图标和文本对齐 */
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+.card-meta a {
+    color: var(--color-text-muted);
+}
+.card-meta a:hover {
+    color: var(--color-primary);
+}
+
+
+.card-text {
+  font-family: var(--font-primary);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-md);
+  flex-grow: 1; /* 允许文本区域占据空间，将按钮推到底部 */
+  line-height: 1.7; /* 增加正文行高 */
+}
+
+/* 卡片内将按钮推到底部的辅助类 */
+.card-body .mt-auto {
+    margin-top: auto;
+}
+
+
+/* ===========================
+   按钮样式 (Button Styles)
+   =========================== */
+.btn {
+  display: inline-block; /* 确保按钮表现正常 */
+  padding: 0.75rem 2rem;
+  font-weight: 600;
+  font-family: var(--font-heading); /* 按钮使用标题字体 */
+  border-radius: 50px; /* 圆角按钮 */
+  transition: all var(--transition-normal);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 2px solid transparent; /* 为 outline 按钮预留边框空间 */
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none; /* 确保链接按钮没有下划线 */
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary); /* 保持边框颜色一致 */
+}
+
+.btn-primary:hover {
+  background-color: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(255, 107, 107, 0.3);
+}
+
+.btn-outline { /* 通用 outline 按钮 */
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary);
+  background-color: transparent;
+}
+.btn-outline:hover {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.btn-outline-light { /* 用于深色背景上的浅色 outline 按钮 */
+  border: 2px solid var(--color-text-secondary);
+  color: var(--color-text-secondary);
+  background-color: transparent;
+}
+
+.btn-outline-light:hover {
+  background-color: var(--color-text-secondary);
+  color: var(--color-dark-bg);
+  border-color: var(--color-text-secondary);
+}
+
+.btn-sm { /* 小按钮 */
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+}
+
+.btn-danger-outline { /* 用于删除等操作的危险按钮 */
+    border-color: var(--color-text-muted);
+    color: var(--color-text-muted);
+}
+.btn-danger-outline:hover {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    color: white;
+}
+
+/* ===========================
+   侧边栏样式 (Sidebar Styles)
+   =========================== */
+.sidebar-card {
+  background-color: var(--color-card-bg);
+  border-radius: 12px;
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+  border: 1px solid var(--color-border);
+}
+
+.sidebar-title {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: var(--spacing-md);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-primary);
+}
+
+.category-list { /* 替代 .list-unstyled */
+    list-style: none;
+    padding-left: 0;
+}
+
+.category-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-sm) 0;
+  border-bottom: 1px solid var(--color-border);
+  transition: all var(--transition-fast);
+}
+
+.category-item:last-child {
+  border-bottom: none;
+}
+
+.category-item:hover {
+  padding-left: var(--spacing-sm); /* 悬停时左移效果 */
+}
+
+.category-link {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+  font-weight: 500;
+}
+
+.category-link:hover {
+  color: var(--color-primary);
+}
+
+.category-count {
+  background-color: var(--color-primary);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* ===========================
+   标签云样式 (Tag Cloud Styles)
+   =========================== */
+.tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm); /* 标签之间的间距 */
+}
+
+.tag {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background-color: rgba(255, 107, 107, 0.1);
+  color: var(--color-primary);
+  border-radius: 25px;
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+}
+
+.tag:hover {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary-hover);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+.tag.small { /* 用于文章元数据中的小标签 */
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
+}
+.category-tag { /* 特殊标记分类的标签 */
+    background-color: rgba(108, 117, 125, 0.15); /* 示例：灰色背景 */
+    color: var(--color-text-secondary);
+}
+.category-tag:hover {
+    background-color: var(--color-text-secondary);
+    color: var(--color-dark-bg);
+}
+
+
+/* ===========================
+   文章详情页样式 (Article Detail Styles)
+   =========================== */
+.article-header {
+  text-align: center;
+  margin-bottom: var(--spacing-xxl);
+  padding: 0 var(--spacing-md); /* 避免太宽 */
+}
+
+.article-title { /* 这个类已在 .hero-title 中有定义，如果文章标题也用 hero 样式，可以复用 */
+  font-family: var(--font-heading);
+  font-size: clamp(2rem, 4.5vw, 3.2rem); /* 调整 */
+  font-weight: 800;
+  margin-bottom: var(--spacing-md);
+  line-height: 1.2;
+  color: var(--color-text-primary);
+}
+
+.article-meta {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap; /* 允许换行 */
+  gap: var(--spacing-sm) var(--spacing-md); /* 行间距和列间距 */
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+.article-meta span, .article-meta a {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+.article-meta a {
+    color: var(--color-text-muted);
+    text-decoration: none;
+}
+.article-meta a:hover {
+    color: var(--color-primary);
+}
+
+
+.article-content {
+  font-size: 1.1rem; /* 正文稍大一点 */
+  line-height: 1.8;
+  color: var(--color-text-secondary);
+  max-width: 750px; /* 限制正文宽度，提高可读性 */
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0 var(--spacing-md);
+}
+
+.article-content h1, /* Markdown 内容中的标题 */
+.article-content h2,
+.article-content h3,
+.article-content h4 {
+  font-family: var(--font-heading);
+  color: var(--color-text-primary);
+  margin-top: var(--spacing-xl);
+  margin-bottom: var(--spacing-md);
+  line-height: 1.3;
+}
+.article-content h1 { font-size: 2em; }
+.article-content h2 { font-size: 1.75em; }
+.article-content h3 { font-size: 1.5em; }
+.article-content h4 { font-size: 1.25em; }
+
+
+.article-content p {
+  margin-bottom: var(--spacing-md);
+}
+.article-content ul, .article-content ol {
+    margin-bottom: var(--spacing-md);
+    padding-left: var(--spacing-lg);
+}
+.article-content li {
+    margin-bottom: var(--spacing-xs);
+}
+
+.article-content blockquote {
+    border-left: 4px solid var(--color-primary);
+    padding-left: var(--spacing-md);
+    margin: var(--spacing-md) 0;
+    color: var(--color-text-muted);
+    font-style: italic;
+}
+
+.article-content a { /* Markdown 内容中的链接 */
+    color: var(--color-primary);
+    text-decoration: underline;
+}
+.article-content a:hover {
+    color: var(--color-primary-hover);
+}
+
+.article-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: var(--spacing-md) 0;
+    display: block; /* 居中图片 */
+    margin-left: auto;
+    margin-right: auto;
+}
+
+
+.article-content pre { /* 代码块 */
+  background-color: #0d1117; /* 深色代码块背景 */
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: var(--spacing-md);
+  overflow-x: auto;
+  margin: var(--spacing-lg) 0; /* 增加代码块的上下外边距 */
+  font-size: 0.9em; /* 代码字体稍小 */
+  box-shadow: var(--shadow-sm);
+}
+
+.article-content code { /* 行内代码 */
+  background-color: rgba(255, 107, 107, 0.1);
+  color: var(--color-primary);
+  padding: 0.2em 0.4em; /* 调整内边距 */
+  border-radius: 4px;
+  font-size: 0.9em; /* 与 pre 中的 code 字体大小一致 */
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; /* 指定等宽字体 */
+}
+
+.article-content pre code { /* 代码块内的 code 标签 */
+  background-color: transparent;
+  color: #c9d1d9; /* 浅色代码文字，根据 Prism 主题调整 */
+  padding: 0;
+  font-size: inherit; /* 继承 pre 的字体大小 */
+  border-radius: 0;
+}
+
+.article-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: var(--spacing-lg) 0;
+    font-size: 0.95rem;
+}
+.article-content th, .article-content td {
+    border: 1px solid var(--color-border);
+    padding: var(--spacing-sm);
+    text-align: left;
+}
+.article-content th {
+    background-color: var(--color-card-bg);
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+
+/* ===========================
+   评论区样式 (Comments Section Styles)
+   =========================== */
+.comments-section {
+  margin-top: var(--spacing-xxl);
+  padding-top: var(--spacing-xl); /* 调整上边距 */
+  border-top: 1px solid var(--color-border);
+  max-width: 750px; /* 与文章内容同宽 */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.comment-form {
+  background-color: var(--color-card-bg);
+  padding: var(--spacing-lg);
+  border-radius: 12px;
+  margin-bottom: var(--spacing-xl);
+  border: 1px solid var(--color-border);
+}
+/* 评论表单内的标题 */
+.comment-form h4 {
+    font-family: var(--font-heading);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-md);
+    font-size: 1.25rem;
+}
+
+.comment-item {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+  padding-bottom: var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+.comment-item:last-child {
+    border-bottom: none;
+}
+
+.comment-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  flex-shrink: 0;
+  font-size: 1.2rem; /* 头像内字母大小 */
+}
+
+.comment-content-wrapper { /* 原 .comment-content，避免与 article-content 冲突 */
+  flex: 1;
+}
+
+.comment-author {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  color: var(--color-text-primary);
+}
+
+.comment-date {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-sm);
+}
+
+.comment-text {
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+}
+.comment-text p:last-child {
+    margin-bottom: 0;
+}
+
+/* ===========================
+   表单样式 (Form Styles)
+   =========================== */
+.form-container { /* 用于登录/注册页面的表单包裹容器 */
+    max-width: 480px;
+    margin: var(--spacing-xl) auto;
+    padding: var(--spacing-xl);
+    background-color: var(--color-card-bg);
+    border-radius: 12px;
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-md);
+}
+.form-header {
+    text-align: center;
+    margin-bottom: var(--spacing-lg);
+}
+.form-header .section-title { /* 确保表单标题样式 */
+    margin-bottom: var(--spacing-xs);
+}
+
+
+.form-control,
+.form-select {
+  display: block; /* 确保占满宽度 */
+  width: 100%;
+  background-color: var(--color-dark-bg); /* 更深的背景以区分 */
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  transition: all var(--transition-fast);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.form-control:focus,
+.form-select:focus {
+  background-color: var(--color-dark-bg);
+  border-color: var(--color-primary);
+  color: var(--color-text-primary);
+  box-shadow: 0 0 0 0.2rem rgba(255, 107, 107, 0.25);
+  outline: none; /* 移除默认 outline */
+}
+textarea.form-control { /* 文本域特定样式 */
+    min-height: 120px;
+    resize: vertical; /* 允许垂直调整大小 */
+}
+
+
+.form-label {
+  display: inline-block; /* 使 margin-bottom 生效 */
+  font-weight: 600;
+  margin-bottom: var(--spacing-xs); /* 调整标签和输入框间距 */
+  color: var(--color-text-secondary);
+}
+
+/* 表单提示文字 */
+.form-text {
+    font-size: 0.875em;
+    color: var(--color-text-muted);
+    margin-top: var(--spacing-xs);
+}
+
+/* 复选框样式 */
+.form-check {
+    display: flex; /* 使用 flex 布局 */
+    align-items: center; /* 垂直居中 */
+    padding-left: 0; /* 移除默认 padding */
+    margin-bottom: var(--spacing-md);
+}
+.form-check-input {
+    width: 1.25em; /* 调整复选框大小 */
+    height: 1.25em;
+    margin-top: 0; /* 移除默认 margin-top */
+    margin-right: var(--spacing-sm); /* 和标签的间距 */
+    border: 1px solid var(--color-border);
+    background-color: var(--color-dark-bg);
+    flex-shrink: 0; /* 防止被压缩 */
+}
+.form-check-input:checked {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+.form-check-input:focus {
+    border-color: var(--color-primary);
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(255, 107, 107, 0.25);
+}
+.form-check-label {
+    color: var(--color-text-secondary);
+    font-weight: normal; /* 确保不是粗体 */
+}
+.form-check-label a { /* 复选框标签内链接颜色 */
+    color: var(--color-primary);
+}
+
+/* 表单内的分隔线 */
+.form-divider {
+    border: 0;
+    border-top: 1px solid var(--color-border);
+    margin: var(--spacing-lg) 0;
+}
+
+/* 表单底部的链接区域 */
+.form-footer-links p {
+    color: var(--color-text-secondary);
+    margin-bottom: 0;
+}
+.form-footer-links a {
+    color: var(--color-primary);
+    font-weight: 500;
+}
+
+/* 表单错误/成功消息 */
+.form-message {
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+.form-message.error {
+    background-color: rgba(255, 107, 107, 0.15); /* 主色的浅色背景 */
+    color: var(--color-primary);
+    border: 1px solid var(--color-primary);
+}
+.form-message.success {
+    background-color: rgba(40, 167, 69, 0.15); /* 假设绿色为成功色 */
+    color: #28a745;
+    border: 1px solid #28a745;
+}
+
+
+/* ===========================
+   表格样式 (Table Styles for Dashboard etc.)
+   =========================== */
+.custom-table {
+    width: 100%;
+    margin-bottom: var(--spacing-md);
+    color: var(--color-text-secondary);
+    border-collapse: collapse; /* 合并边框 */
+}
+.custom-table th,
+.custom-table td {
+    padding: var(--spacing-md);
+    vertical-align: top;
+    border-top: 1px solid var(--color-border);
+    text-align: left; /* 默认左对齐 */
+}
+.custom-table thead th {
+    vertical-align: bottom;
+    border-bottom: 2px solid var(--color-border); /* 表头下边框加粗 */
+    color: var(--color-text-primary);
+    font-weight: 600;
+    text-transform: uppercase; /* 可选：表头大写 */
+    letter-spacing: 0.5px;
+}
+.custom-table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.03); /* 非常轻微的悬停背景色 */
+}
+.custom-table td a { /* 表格内链接颜色 */
+    color: var(--color-primary);
+}
+.custom-table td a:hover {
+    text-decoration: underline;
+}
+.custom-table .text-center { text-align: center; }
+.custom-table .text-right { text-align: right; }
+
+/* 状态徽章样式 */
+.status-badge {
+    padding: 0.3em 0.6em;
+    font-size: 0.8em;
+    font-weight: 600;
+    border-radius: 20px;
+    text-transform: capitalize;
+}
+.status-badge.status-published {
+    background-color: rgba(40, 167, 69, 0.2); /* 绿色系 */
+    color: #28a745;
+}
+.status-badge.status-draft {
+    background-color: rgba(108, 117, 125, 0.2); /* 灰色系 */
+    color: var(--color-text-muted);
+}
+
+/* 仪表盘导航样式 */
+.dashboard-nav {
+    list-style: none;
+    padding-left: 0;
+    /* 使用 .sidebar-card 的背景和边框 */
+}
+.dashboard-nav-link {
+    display: block;
+    padding: var(--spacing-sm) var(--spacing-lg);
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    border-bottom: 1px solid var(--color-border);
+    transition: all var(--transition-fast);
+}
+.dashboard-nav-link:last-child {
+    border-bottom: none;
+}
+.dashboard-nav-link:hover {
+    background-color: rgba(255, 107, 107, 0.05);
+    color: var(--color-primary);
+    padding-left: calc(var(--spacing-lg) + var(--spacing-xs)); /* 悬停时左内边距增加 */
+}
+.dashboard-nav-link.active {
+    background-color: rgba(255, 107, 107, 0.1);
+    color: var(--color-primary);
+    font-weight: 600;
+    border-left: 3px solid var(--color-primary); /* 激活项左侧边框 */
+    padding-left: calc(var(--spacing-lg) - 3px); /* 调整内边距以适应边框 */
+}
+
+/* 仪表盘统计卡片 */
+.stat-card {
+    background-color: var(--color-card-bg);
+    padding: var(--spacing-lg);
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid var(--color-border);
+}
+.stat-title {
+    font-size: 1rem;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--spacing-sm);
+    text-transform: uppercase;
+    font-weight: 500;
+}
+.stat-value {
+    font-size: 2.5rem; /* display-4 大概是 3rem，可以调整 */
+    font-weight: 700;
+    color: var(--color-text-primary);
+    line-height: 1;
+}
+
+/* 内容面板 (用于仪表盘等) */
+.content-panel {
+    background-color: var(--color-card-bg);
+    padding: var(--spacing-lg);
+    border-radius: 12px;
+    border: 1px solid var(--color-border);
+}
+
+
+/* ===========================
+   页脚样式 (Footer Styles)
+   =========================== */
+footer {
+  background-color: #0d0d0d; /* 比主背景更深的颜色 */
+  padding: var(--spacing-xl) 0; /* 上下内边距调整 */
+  margin-top: var(--spacing-xxl);
+  border-top: 1px solid var(--color-border);
+  font-size: 0.9rem;
+}
+
+.footer-content {
+  text-align: center;
+  color: var(--color-text-muted);
+}
+.footer-content p {
+    margin-bottom: var(--spacing-xs);
+}
+
+.footer-links {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+}
+
+.footer-link {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.footer-link:hover {
+  color: var(--color-primary);
+}
+
+/* ===========================
+   分页样式 (Pagination Styles)
+   =========================== */
+.pagination { /* ul 元素 */
+    display: flex;
+    padding-left: 0;
+    list-style: none;
+    border-radius: .25rem; /* 可选，整体圆角 */
+    justify-content: center; /* 默认居中 */
+}
+.page-item { /* li 元素 */
+    margin: 0 2px; /* 页码项之间的间距 */
+}
+.page-item.disabled .page-link {
+    color: var(--color-text-muted);
+    pointer-events: none;
+    background-color: transparent; /* 深色主题下透明背景 */
+    border-color: var(--color-border);
+}
+.page-item.active .page-link {
+    z-index: 3;
+    color: #fff;
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    font-weight: 600;
+}
+.page-link { /* a 或 span 元素 */
+    position: relative;
+    display: block;
+    padding: .5rem .75rem;
+    margin-left: -1px; /* 边框重叠效果 */
+    line-height: 1.25;
+    color: var(--color-primary); /* 默认链接颜色 */
+    background-color: transparent; /* 深色主题下透明背景 */
+    border: 1px solid var(--color-border);
+    text-decoration: none;
+    transition: all var(--transition-fast);
+}
+.page-link:hover {
+    z-index: 2;
+    color: var(--color-primary-hover);
+    background-color: rgba(255,107,107,0.1); /* 悬停背景色 */
+    border-color: var(--color-border);
+}
+.page-item:first-child .page-link {
+    margin-left: 0;
+    border-top-left-radius: .25rem;
+    border-bottom-left-radius: .25rem;
+}
+.page-item:last-child .page-link {
+    border-top-right-radius: .25rem;
+    border-bottom-right-radius: .25rem;
+}
+
+
+/* ===========================
+   加载动画 (Spinner Styles)
+   =========================== */
+.spinner-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ===========================
+   响应式设计 (Responsive Design)
+   =========================== */
+@media (max-width: 991.98px) { /* 对应 Bootstrap lg 断点以下 */
+    .navbar-collapse {
+        /* 在这里添加移动端折叠导航的样式 */
+        /* 例如，使其成为块状，项目垂直排列等 */
+        width: 100%;
+        background-color: var(--color-card-bg); /* 移动端菜单背景 */
+        position: absolute;
+        top: var(--navbar-height); /* 导航栏下方 */
+        left: 0;
+        right: 0;
+        padding: var(--spacing-sm) var(--spacing-md);
+        border-bottom: 1px solid var(--color-border);
+        box-shadow: var(--shadow-md);
+    }
+    .navbar-nav {
+        flex-direction: column; /* 移动端垂直排列 */
+        width: 100%;
+    }
+    .nav-item {
+        margin-left: 0;
+        margin-right: 0;
+        width: 100%;
+    }
+    .nav-link {
+        padding: var(--spacing-md) var(--spacing-sm) !important; /* 调整移动端链接内边距 */
+        border-bottom: 1px solid var(--color-border);
+    }
+    .nav-item:last-child .nav-link {
+        border-bottom: none;
+    }
+    .nav-link::after { /* 移动端通常不显示下划线动画 */
+        display: none;
+    }
+    .navbar .d-flex { /* 移动端登录注册按钮也垂直排列 */
+        flex-direction: column;
+        width: 100%;
+        margin-top: var(--spacing-md);
+    }
+    #auth-buttons a.nav-link {
+        margin-left: 0;
+        margin-bottom: var(--spacing-sm);
+        text-align: center;
+        border: 1px solid var(--color-border); /* 给按钮一些边界 */
+        border-radius: 8px;
+    }
+     #auth-buttons a.nav-link:hover {
+        background-color: var(--color-primary);
+        color: white !important;
+     }
+
+}
+
+
+@media (max-width: 768px) { /* 对应 Bootstrap md 断点以下 */
+  body {
+    padding-top: var(--navbar-height); /* 确保内容不被固定的导航栏遮挡 */
+  }
+  .hero-title {
+    font-size: 2rem; /* 在小屏幕上进一步调整标题大小 */
+  }
+
+  .hero-subtitle {
+    font-size: 1rem; /* 在小屏幕上进一步调整副标题大小 */
+  }
+
+  .card-body {
+    padding: var(--spacing-md);
+  }
+
+  .article-meta {
+    flex-wrap: wrap; /* 允许元数据换行 */
+    gap: var(--spacing-sm);
+    font-size: 0.8rem; /* 调整元数据字体大小 */
+  }
+  .article-content {
+    font-size: 1rem; /* 调整文章内容字体大小 */
+  }
+
+  .footer-links {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .form-container { /* 表单容器在小屏幕上占满宽度，调整内边距 */
+      margin: var(--spacing-md) 0;
+      padding: var(--spacing-lg) var(--spacing-md);
+      border-radius: 0;
+  }
+}
+
+/* ===========================
+   工具类 (Utility Classes)
+   =========================== */
+/* 文本颜色 */
+.text-primary { color: var(--color-primary) !important; }
+.text-secondary { color: var(--color-text-secondary) !important; }
+.text-muted { color: var(--color-text-muted) !important; }
+.text-white { color: #ffffff !important; }
+.text-danger { color: var(--color-primary) !important; } /* 将危险色也用主色替代 */
+
+/* 背景颜色 */
+.bg-dark { background-color: var(--color-dark-bg) !important; }
+.bg-card { background-color: var(--color-card-bg) !important; }
+
+/* 文本对齐 */
+.text-center { text-align: center !important; }
+.text-start { text-align: left !important; } /* 对应 Bootstrap 5 的 text-start */
+.text-end { text-align: right !important; } /* 对应 Bootstrap 5 的 text-end */
+
+/* 显示属性 */
+.d-none { display: none !important; }
+.d-block { display: block !important; }
+.d-flex { display: flex !important; }
+.d-inline-block { display: inline-block !important; }
+
+/* Flexbox 工具类 */
+.justify-content-center { justify-content: center !important; }
+.align-items-center { align-items: center !important; }
+/* ... 可以根据需要添加更多 flex 工具类 ... */
+
+/* 间距工具类 (示例，可以扩展) */
+.m-0 { margin: 0 !important; }
+.mt-1 { margin-top: var(--spacing-xs) !important; }
+.mb-1 { margin-bottom: var(--spacing-xs) !important; }
+.mt-2 { margin-top: var(--spacing-sm) !important; }
+.mb-2 { margin-bottom: var(--spacing-sm) !important; }
+.mt-3 { margin-top: var(--spacing-md) !important; }
+.mb-3 { margin-bottom: var(--spacing-md) !important; }
+.mt-4 { margin-top: var(--spacing-lg) !important; }
+.mb-4 { margin-bottom: var(--spacing-lg) !important; }
+.mt-5 { margin-top: var(--spacing-xl) !important; }
+.mb-5 { margin-bottom: var(--spacing-xl) !important; }
+
+.p-0 { padding: 0 !important; }
+.pt-1 { padding-top: var(--spacing-xs) !important; }
+.pb-1 { padding-bottom: var(--spacing-xs) !important; }
+/* ... 可以根据需要扩展更多 p*, ps*, pe*, mx*, my* 等工具类 ... */
+
+.w-100 { width: 100% !important; }
+
+
+/* section 间距 */
+.mt-section {
+  margin-top: var(--spacing-xxl);
+}
+
+.mb-section {
+  margin-bottom: var(--spacing-xxl);
+}
+
+/* 清除浮动 (如果还在使用 float) */
+.clearfix::after {
+    content: "";
+    clear: both;
+    display: table;
+}
+
+
+/* ===========================
+   动画效果 (Animation Effects)
+   =========================== */
+.fade-in {
+  animation: fadeIn 0.5s ease-in forwards; /* 添加 forwards 使动画停在最后一帧 */
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-in-left {
+  animation: slideInLeft 0.5s ease-out forwards; /* 添加 forwards */
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ===========================
+   自定义滚动条 (Custom Scrollbar)
+   =========================== */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-dark-bg);
+  border-left: 1px solid var(--color-border); /* 给轨道一个细微的边界 */
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 5px;
+  border: 2px solid var(--color-dark-bg); /* 模拟内边距效果 */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
 }

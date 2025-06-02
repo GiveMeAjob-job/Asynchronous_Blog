@@ -3,58 +3,58 @@
 {% block title %}仪表盘 - Async Blog{% endblock %}
 
 {% block content %}
-<div class="row">
+<div class="row mt-section"> {# 使用新CSS的间距类 #}
     <div class="col-md-3">
-        <div class="list-group">
-            <a href="/dashboard" class="list-group-item list-group-item-action active">
+        {# 1. 侧边导航菜单: 移除 list-group 类，应用新的导航或链接样式 #}
+        {# 您可能需要在新 CSS 中为 .dashboard-nav, .dashboard-nav-item, .dashboard-nav-link, .active 创建样式 #}
+        <nav class="dashboard-nav sidebar-card p-0"> {# 使用 .sidebar-card 作为背景和边框，p-0 移除内边距 #}
+            <a href="/dashboard" class="dashboard-nav-link active"> {/* 假设 .dashboard-nav-link 处理内边距和悬停 */}
                 仪表盘总览
             </a>
-            <a href="/dashboard/posts" class="list-group-item list-group-item-action">
+            <a href="/dashboard/posts" class="dashboard-nav-link">
                 我的文章
             </a>
-            <a href="/dashboard/posts/new" class="list-group-item list-group-item-action">
+            <a href="/dashboard/posts/new" class="dashboard-nav-link">
                 发布新文章
             </a>
-            <a href="/dashboard/profile" class="list-group-item list-group-item-action">
+            <a href="/dashboard/profile" class="dashboard-nav-link">
                 个人资料
             </a>
-        </div>
+        </nav>
     </div>
     <div class="col-md-9">
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">仪表盘</h3>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="card text-white bg-primary mb-3">
-                            <div class="card-body">
-                                <h5 class="card-title">文章总数</h5>
-                                <p class="card-text display-4">{{ total_posts }}</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card text-white bg-success mb-3">
-                            <div class="card-body">
-                                <h5 class="card-title">已发布</h5>
-                                <p class="card-text display-4">{{ published_posts }}</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card text-white bg-info mb-3">
-                            <div class="card-body">
-                                <h5 class="card-title">草稿</h5>
-                                <p class="card-text display-4">{{ draft_posts }}</p>
-                            </div>
-                        </div>
+        {# 2. 主内容卡片: 移除 Bootstrap .card, .card-header, .card-body, 应用新CSS的 .content-panel 或类似类 #}
+        <section class="content-panel"> {# 或者直接使用 .sidebar-card 如果样式一致 #}
+            <h3 class="section-title mb-4">仪表盘</h3> {# 使用新CSS的 .section-title #}
+
+            <div class="row">
+                {# 3. 统计卡片: 移除 Bootstrap .card, .text-white, .bg-primary 等 #}
+                {# 应用新CSS的 .stat-card 或类似的类 #}
+                <div class="col-md-4 mb-4">
+                    <div class="stat-card">
+                        <h5 class="stat-title">文章总数</h5>
+                        <p class="stat-value display-4">{{ total_posts }}</p>
                     </div>
                 </div>
-                
-                <h4 class="mt-4">最近文章</h4>
-                <table class="table">
+                <div class="col-md-4 mb-4">
+                    <div class="stat-card">
+                        <h5 class="stat-title">已发布</h5>
+                        <p class="stat-value display-4">{{ published_posts }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="stat-card">
+                        <h5 class="stat-title">草稿</h5>
+                        <p class="stat-value display-4">{{ draft_posts }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <h4 class="section-title mt-5 mb-4">最近文章</h4>
+            {# 4. 表格: 移除 .table 类，或者在您的新 CSS 中为 .table 提供深色主题样式 #}
+            {# 如果完全移除 Bootstrap CSS，您需要从头定义表格样式 #}
+            <div class="table-responsive"> {# 保留响应式包装器 #}
+                <table class="custom-table"> {# 使用自定义表格类 .custom-table #}
                     <thead>
                         <tr>
                             <th>标题</th>
@@ -66,25 +66,37 @@
                     <tbody>
                         {% for post in recent_posts %}
                         <tr>
-                            <td>{{ post.title }}</td>
                             <td>
+                                <a href="{{ url_for('post_detail', slug=post.slug) if post.published else '#' }}" class="text-primary">
+                                    {{ post.title }}
+                                </a>
+                            </td>
+                            <td>
+                                {# 5. 徽章: 移除 .badge, .bg-success, .bg-secondary #}
+                                {# 应用新CSS的 .status-badge 或类似的类, 例如 .status-published, .status-draft #}
                                 {% if post.published %}
-                                <span class="badge bg-success">已发布</span>
+                                <span class="status-badge status-published">已发布</span>
                                 {% else %}
-                                <span class="badge bg-secondary">草稿</span>
+                                <span class="status-badge status-draft">草稿</span>
                                 {% endif %}
                             </td>
                             <td>{{ post.created_at.strftime('%Y-%m-%d') }}</td>
                             <td>
-                                <a href="/dashboard/posts/edit/{{ post.id }}" class="btn btn-sm btn-primary">编辑</a>
-                                <button class="btn btn-sm btn-danger delete-post" data-id="{{ post.id }}">删除</button>
+                                {# 6. 按钮: 移除 .btn-sm, .btn-primary, .btn-danger #}
+                                {# 应用新CSS的 .btn, .btn-outline (或其他自定义按钮类) #}
+                                <a href="/dashboard/posts/edit/{{ post.id }}" class="btn btn-outline btn-sm">编辑</a>
+                                <button class="btn btn-danger-outline btn-sm delete-post" data-id="{{ post.id }}">删除</button>
                             </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-4">暂无最近文章</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-        </div>
+        </section>
     </div>
 </div>
 {% endblock %}
@@ -96,14 +108,17 @@ document.addEventListener('DOMContentLoaded', function() {
     deleteButtons.forEach(button => {
         button.addEventListener('click', function() {
             const postId = this.getAttribute('data-id');
-            if(confirm('确定要删除这篇文章吗？')) {
-axios.delete(`/posts/${postId}`) // Corrected: Removed leading /api
-    .then(response => {
-        window.location.reload();
-    })
-    .catch(error => {
-        alert('删除失败：' + error.response.data.detail);
-    });
+            // 使用更符合新主题的确认对话框 (如果您的新CSS包含自定义模态框或提示样式)
+            // 或者暂时保留 confirm()
+            if(confirm('确定要删除这篇文章吗？此操作不可恢复。')) {
+                axios.delete(`/api/v1/posts/${postId}`) // 确保 API 路径正确
+                    .then(response => {
+                        window.location.reload();
+                    })
+                    .catch(error => {
+                        // 使用更符合新主题的错误提示
+                        alert('删除失败：' + (error.response?.data?.detail || '未知错误'));
+                    });
             }
         });
     });

@@ -3,140 +3,136 @@
 {% block title %}搜索 - Async Blog{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <h1 class="mb-4">搜索文章</h1>
-        
-        <!-- 搜索表单 -->
-        <form method="get" action="/search" class="mb-4">
-            <div class="input-group">
-                <input type="text" name="q" class="form-control" 
-                       placeholder="搜索文章..." value="{{ query or '' }}">
-                <button class="btn btn-primary" type="submit">搜索</button>
-            </div>
-        </form>
-        
-        <!-- 搜索结果 -->
-        {% if query or category or tag %}
-            <div class="alert alert-info">
-                {% if query %}
-                    搜索 "<strong>{{ query }}</strong>" 
-                {% endif %}
-                {% if category %}
-                    分类 "<strong>{{ category }}</strong>"
-                {% endif %}
-                {% if tag %}
-                    标签 "<strong>{{ tag }}</strong>"
-                {% endif %}
-                共找到 <strong>{{ total }}</strong> 个结果
-            </div>
-            
-            {% if posts %}
-                <!-- 文章列表 -->
-                {% for post in posts %}
-                    <div class="card mb-3">
-                        <div class="card-body">
-                            <h2 class="card-title h4">
-                                <a href="/post/{{ post.slug }}" class="text-decoration-none">
-                                    {{ post.title }}
-                                </a>
-                            </h2>
-                            <p class="card-text text-muted mb-2">
-                                <small>
-                                    <i class="fas fa-user"></i> {{ post.author.username }}
-                                    <i class="fas fa-calendar ms-2"></i> {{ post.created_at.strftime('%Y-%m-%d') }}
-                                    {% if post.category %}
-                                        <i class="fas fa-folder ms-2"></i> {{ post.category.name }}
-                                    {% endif %}
-                                </small>
-                            </p>
-                            
-                            <!-- 标签 -->
-                            {% if post.tags %}
-                                <div class="mb-2">
-                                    {% for tag in post.tags %}
-                                        <span class="badge bg-secondary me-1">{{ tag.name }}</span>
-                                    {% endfor %}
-                                </div>
+<div class="container mt-section"> {# 使用 .container 进行内容约束 #}
+    <header class="page-header mb-4 text-center"> {# 新增 .page-header #}
+        <h1 class="section-title">搜索文章</h1>
+    </header>
+
+    <form method="get" action="{{ url_for('search') }}" class="search-form mb-5"> {# 新增 .search-form #}
+        <div class="input-group"> {# 这个 Bootstrap 结构可以保留，但需要用新CSS美化 #}
+            <input type="text" name="q" class="form-control form-control-lg"
+                   placeholder="搜索文章、标签或分类..." value="{{ query or '' }}">
+            <button class="btn btn-primary" type="submit">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16">
+                    <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                </svg>
+                <span class="ms-2 d-none d-md-inline">搜索</span>
+            </button>
+        </div>
+    </form>
+
+    {% if query or category or tag %}
+        {# 1. 移除 .alert .alert-info, 使用自定义的 .search-results-summary #}
+        <div class="search-results-summary mb-4">
+            {% if query %}
+                搜索 "<strong>{{ query }}</strong>"
+            {% endif %}
+            {% if category %}
+                分类 "<strong>{{ category }}</strong>"
+            {% endif %}
+            {% if tag %}
+                标签 "<strong>{{ tag }}</strong>"
+            {% endif %}
+            共找到 <strong>{{ total }}</strong> 个结果。
+        </div>
+
+        {% if posts %}
+            <div class="posts-grid"> {# 与 index.html 相同的文章列表网格 #}
+            {% for post in posts %}
+                {# 2. 文章列表项: 与 index.html 中的文章卡片样式保持一致 #}
+                <article class="card mb-4 fade-in">
+                    {% if post.image_url %}
+                    <div class="card-img-wrapper">
+                        <a href="{{ url_for('post_detail', slug=post.slug) }}">
+                            <img src="{{ post.image_url }}" class="card-img-top" alt="{{ post.title }}">
+                        </a>
+                    </div>
+                    {% endif %}
+                    <div class="card-body">
+                        <h3 class="card-title h4"> {# h4 是 Bootstrap 的，新CSS中可以用 .card-title 控制大小 #}
+                            <a href="{{ url_for('post_detail', slug=post.slug) }}" class="text-decoration-none">
+                                {{ post.title }}
+                            </a>
+                        </h3>
+                        <p class="card-meta small"> {# 使用新CSS的 .card-meta #}
+                            <i class="fas fa-user me-1"></i> {{ post.author.username }}
+                            <i class="fas fa-calendar ms-3 me-1"></i> {{ post.created_at.strftime('%Y-%m-%d') }}
+                            {% if post.category %}
+                                <i class="fas fa-folder ms-3 me-1"></i>
+                                <a href="{{url_for('search', category=post.category.name)}}" class="category-tag">{{ post.category.name }}</a>
                             {% endif %}
-                            
-                            <!-- 文章摘要 -->
-                            <p class="card-text">
-                                {{ post.content[:200] }}{% if post.content|length > 200 %}...{% endif %}
-                            </p>
-                            
-                            <a href="/post/{{ post.slug }}" class="btn btn-primary btn-sm">阅读更多</a>
+                        </p>
+
+                        {% if post.tags %}
+                            <div class="tag-cloud mb-2"> {# 使用新CSS的 .tag-cloud 和 .tag #}
+                                {% for t in post.tags %}
+                                    <a href="{{url_for('search', tag=t.name)}}" class="tag small">{{ t.name }}</a>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        <p class="card-text">
+                            {{ post.content[:150] }}{% if post.content|length > 150 %}...{% endif %} {# 调整摘要长度 #}
+                        </p>
+
+                        <div class="mt-auto pt-2">
+                             <a href="{{ url_for('post_detail', slug=post.slug) }}" class="btn btn-primary btn-sm">阅读更多</a>
                         </div>
                     </div>
-                {% endfor %}
-                
-                <!-- 分页 -->
-                {% if total > 10 %}
-                    <nav aria-label="搜索结果分页">
-                        <ul class="pagination justify-content-center">
-                            {% if page > 1 %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?q={{ query or '' }}&category={{ category or '' }}&tag={{ tag or '' }}&page={{ page - 1 }}">上一页</a>
-                                </li>
-                            {% endif %}
-                            
-                            {% for p in range(1, (total // 10) + 2) %}
-                                {% if p == page %}
-                                    <li class="page-item active">
-                                        <span class="page-link">{{ p }}</span>
-                                    </li>
-                                {% else %}
-                                    <li class="page-item">
-                                        <a class="page-link" href="?q={{ query or '' }}&category={{ category or '' }}&tag={{ tag or '' }}&page={{ p }}">{{ p }}</a>
-                                    </li>
-                                {% endif %}
-                            {% endfor %}
-                            
-                            {% if page < (total // 10) + 1 %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?q={{ query or '' }}&category={{ category or '' }}&tag={{ tag or '' }}&page={{ page + 1 }}">下一页</a>
-                                </li>
-                            {% endif %}
-                        </ul>
-                    </nav>
-                {% endif %}
-            {% else %}
-                <div class="alert alert-warning">
-                    <h4>没有找到相关文章</h4>
-                    <p>请尝试：</p>
-                    <ul>
-                        <li>使用不同的关键词</li>
-                        <li>检查拼写是否正确</li>
-                        <li>使用更通用的搜索词</li>
-                    </ul>
-                </div>
+                </article>
+            {% endfor %}
+            </div>
+
+            {% if total > site_settings.DEFAULT_PAGE_SIZE %} {# 假设每页数量来自配置 #}
+                 {% include "_pagination.html" %} {# 确保分页样式也更新 #}
             {% endif %}
+
         {% else %}
-            <!-- 搜索建议 -->
-            <div class="row">
-                <div class="col-md-6">
-                    <h3>热门标签</h3>
-                    <div class="d-flex flex-wrap gap-2">
-                        {% for tag in popular_tags %}
-                            <a href="/search?tag={{ tag.name }}" class="badge bg-secondary text-decoration-none">
-                                {{ tag.name }}
-                            </a>
-                        {% endfor %}
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <h3>文章分类</h3>
-                    <div class="list-group">
-                        {% for category in categories %}
-                            <a href="/search?category={{ category.name }}" class="list-group-item list-group-item-action">
-                                {{ category.name }}
-                                <span class="badge bg-primary rounded-pill">{{ category.post_count }}</span>
-                            </a>
+            {# 3. "未找到"提示: 移除 .alert .alert-warning, 使用自定义的 .empty-state-message #}
+            <div class="empty-state-message text-center py-5">
+                <h4>没有找到相关文章</h4>
+                <p class="text-muted">请尝试：</p>
+                <ul class="list-unstyled">
+                    <li>使用不同的关键词</li>
+                    <li>检查拼写是否正确</li>
+                    <li>使用更通用的搜索词</li>
+                </ul>
+            </div>
+        {% endif %}
+    {% elif popular_tags or categories %} {# 当没有搜索查询时显示建议 (q, category, tag 都为空) #}
+        <div class="row mt-5">
+            <div class="col-md-6 mb-4">
+                <div class="sidebar-card">
+                    <h4 class="sidebar-title">热门标签</h4>
+                    <div class="tag-cloud">
+                        {% for tag_item in popular_tags %}
+                            <a href="{{ url_for('search', tag=tag_item.name) }}" class="tag">{{ tag_item.name }}</a>
                         {% endfor %}
                     </div>
                 </div>
             </div>
-        {% endif %}
-    </div>
+            <div class="col-md-6 mb-4">
+                 <div class="sidebar-card">
+                    <h4 class="sidebar-title">文章分类</h4>
+                    <ul class="list-unstyled">
+                        {% for cat_item in categories %} {# 确保变量名一致 #}
+                            <li class="category-item">
+                                <a href="{{ url_for('search', category=cat_item.name) }}" class="category-link">
+                                    {{ cat_item.name }}
+                                </a>
+                                {% if cat_item.post_count %}
+                                <span class="category-count">{{ cat_item.post_count }}</span>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="empty-state-message text-center py-5">
+            <p class="text-muted">输入关键词开始搜索，或浏览热门标签和分类。</p>
+        </div>
+    {% endif %}
 </div>
 {% endblock %}

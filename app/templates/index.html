@@ -2,75 +2,103 @@
 
 {% block title %}Async Blog - 首页{% endblock %}
 
+{# 可选: 如果首页有独特的 Hero Section 内容 #}
+{% block hero_section %}
+<section class="hero-section">
+    <div class="hero-content container">
+        <h1 class="hero-title fade-in">Async Blog</h1>
+        <p class="hero-subtitle fade-in" style="animation-delay: 0.2s;">探索异步编程、FastAPI 及更多技术内容。</p>
+        <a href="#latest-posts" class="btn btn-primary fade-in" style="animation-delay: 0.4s;">查看最新文章</a>
+    </div>
+</section>
+{% endblock hero_section %}
+
+
 {% block content %}
-<div class="row">
-    <div class="col-md-8">
-        <h1 class="mb-4">最新文章</h1>
-        
+<div class="row mt-section" id="latest-posts"> {# 使用新CSS的间距类，并添加ID以便锚点跳转 #}
+    <div class="col-md-8"> {# Bootstrap 栅格可以保留用于整体布局 #}
+        <h2 class="mb-4 section-title">最新文章</h2> {# 可以定义一个 .section-title 类 #}
+
         {% if posts %}
+            <div class="posts-grid"> {# 可选: 如果想用 CSS Grid 布局卡片 #}
             {% for post in posts %}
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <h2 class="card-title">{{ post.title }}</h2>
-                        <p class="card-text text-muted">
-                            {% if post.category %}
-                                <span class="badge bg-primary">{{ post.category.name }}</span>
-                            {% endif %}
-                            <small>发布于 {{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
-                        </p>
-                        <p class="card-text">{{ post.content|truncate(200) }}</p>
-                        <a href="/post/{{ post.slug }}" class="btn btn-primary">阅读更多</a>
+                {# 1. 应用新 CSS 中的 .card 样式 #}
+                <article class="card mb-4 fade-in"> {# mb-4 可以保留或用新CSS的间距 #}
+                    {# 可选: 如果新 .card 样式需要图片包装器 #}
+                    {% if post.image_url %} {# 假设您的 Post 模型可以有图片 #}
+                    <div class="card-img-wrapper">
+                        <a href="/post/{{ post.slug }}">
+                            <img src="{{ post.image_url }}" class="card-img-top" alt="{{ post.title }}">
+                        </a>
                     </div>
-                </div>
+                    {% endif %}
+                    <div class="card-body">
+                        <h3 class="card-title"> {# h2 -> h3 for better hierarchy if h1/h2 are page/section titles #}
+                            <a href="/post/{{ post.slug }}" class="text-decoration-none">{{ post.title }}</a>
+                        </h3>
+                        <div class="card-meta"> {# 使用新CSS的 .card-meta #}
+                            {% if post.category %}
+                                {# 2. 移除 .badge .bg-primary, 使用新CSS的 .tag 或自定义分类样式 #}
+                                <a href="/?category_id={{ post.category.id }}" class="tag category-tag">{{ post.category.name }}</a>
+                            {% endif %}
+                            <span><small>发布于 {{ post.created_at.strftime('%Y-%m-%d') }}</small></span>
+                            {# 可以添加作者信息等 #}
+                            {# <span><small>作者: {{ post.author.username }}</small></span> #}
+                        </div>
+                        <p class="card-text">{{ post.content|truncate(150) }}</p> {# 调整摘要长度 #}
+                        {# 3. 应用新 CSS 中的 .btn .btn-primary (或其他自定义按钮类) #}
+                        <div class="mt-auto pt-3"> {# Pushes button to bottom of card-body if card-body is flex column #}
+                             <a href="/post/{{ post.slug }}" class="btn btn-primary">阅读更多</a>
+                        </div>
+                    </div>
+                </article>
             {% endfor %}
+            </div>
         {% else %}
-            <div class="alert alert-info">
-                暂无文章，敬请期待！
+            {# 4. 移除 .alert .alert-info, 使用更通用的提示样式或简单文本 #}
+            <div class="empty-state-message text-center py-5">
+                <h4>暂无文章</h4>
+                <p class="text-muted">很快就会有精彩内容，敬请期待！</p>
             </div>
         {% endif %}
+
+        {# 分页逻辑可以保留，但需要确保分页链接的样式也与新主题一致 #}
+        {# 您可能需要在新 CSS 中为 .pagination, .page-item, .page-link 添加样式 #}
+        {% include "_pagination.html" %} {# 假设您有分页的 include 文件 #}
+
     </div>
-    
+
     <div class="col-md-4">
-        <div class="card mb-4">
-            <div class="card-header">
-                关于博客
+        {# 5. 侧边栏卡片: 应用新 CSS 中的 .sidebar-card #}
+        <aside class="sidebar-card mb-4">
+            <h4 class="sidebar-title">关于博客</h4> {# 使用新CSS的 .sidebar-title #}
+            <p class="text-secondary">欢迎来到Async Blog！这是一个使用FastAPI和异步技术构建的现代博客系统。</p>
+            <a href="/register" class="btn btn-primary w-100">立即注册</a> {# w-100 是 Bootstrap 工具类，如果移除Bootstrap CSS则无效 #}
+        </aside>
+
+        <aside class="sidebar-card mb-4" id="categories">
+            <h4 class="sidebar-title">分类</h4>
+            <ul class="list-unstyled"> {# 移除 list-group, list-group-flush #}
+                {% for category, count in categories %}
+                    {# 6. 分类项: 应用新 CSS 中的 .category-item #}
+                    <li class="category-item">
+                        <a href="/?category_id={{ category.id }}" class="category-link">{{ category.name }}</a>
+                        {# 7. 分类计数: 应用新 CSS 中的 .category-count #}
+                        <span class="category-count">{{ count }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        </aside>
+
+        <aside class="sidebar-card" id="tags">
+            <h4 class="sidebar-title">标签云</h4>
+            {# 8. 标签云: 应用新 CSS 中的 .tag-cloud 和 .tag #}
+            <div class="tag-cloud">
+                {% for tag_item in tags %} {# 确保这里的 'tags' 变量名与后端传过来的一致 #}
+                    <a href="/?tag_name={{ tag_item.name }}" class="tag">{{ tag_item.name }}</a>
+                {% endfor %}
             </div>
-            <div class="card-body">
-                <p>欢迎来到Async Blog！这是一个使用FastAPI和异步技术构建的现代博客系统。</p>
-                <a href="/register" class="btn btn-primary">立即注册</a>
-            </div>
-        </div>
-        
-        <div class="card mb-4" id="categories">
-            <div class="card-header">
-                分类
-            </div>
-            <div class="card-body">
-                <ul class="list-group list-group-flush">
-                    {% for category, count in categories %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <a href="/?category_id={{ category.id }}" class="text-decoration-none">{{ category.name }}</a>
-                            <span class="badge bg-primary rounded-pill">{{ count }}</span>
-                        </li>
-                    {% endfor %}
-                </ul>
-            </div>
-        </div>
-        
-        <div class="card" id="tags">
-            <div class="card-header">
-                标签云
-            </div>
-            <div class="card-body">
-                <div class="d-flex flex-wrap gap-2">
-                    {% for tag in tags %}
-                        <a href="/?tag_name={{ tag.name }}" class="text-decoration-none">
-                            <span class="badge bg-secondary">{{ tag.name }}</span>
-                        </a>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
+        </aside>
     </div>
 </div>
 {% endblock %}
