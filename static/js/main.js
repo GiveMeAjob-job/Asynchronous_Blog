@@ -1,4 +1,3 @@
-// 检查用户登录状态并更新UI
 function checkAuthStatus() {
     const token = localStorage.getItem('token');
     const authButtons = document.getElementById('auth-buttons');
@@ -14,20 +13,33 @@ function checkAuthStatus() {
             }).join(''));
 
             const payload = JSON.parse(jsonPayload);
-document.getElementById('navUsername').textContent = payload.username || '用户'; // 使用新的 ID
+            // 确保您已经将 base.html 中对应的 span id 修改为 navUsername
+            document.getElementById('navUsername').textContent = payload.username || '用户'; // 这是您修改后的正确代码
         } catch (e) {
             console.error('解析token失败', e);
+            // 可选：如果解析失败，也显示默认“用户”或清空
+            const navUsernameElement = document.getElementById('navUsername');
+            if (navUsernameElement) {
+                navUsernameElement.textContent = '用户';
+            }
         }
 
-        authButtons.classList.add('d-none');
-        userMenu.classList.remove('d-none');
+        // 确保 authButtons 和 userMenu 元素在 DOM 中存在
+        if (authButtons) {
+            authButtons.classList.add('d-none');
+        }
+        if (userMenu) {
+            userMenu.classList.remove('d-none');
+        }
     } else {
-        authButtons.classList.remove('d-none');
-        userMenu.classList.add('d-none');
+        if (authButtons) {
+            authButtons.classList.remove('d-none');
+        }
+        if (userMenu) {
+            userMenu.classList.add('d-none');
+        }
     }
 }
-
-// 退出登录
 
 // 退出登录
 document.addEventListener('DOMContentLoaded', function() {
@@ -38,7 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
             localStorage.removeItem('token');
             // 清除cookie
             document.cookie = 'access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-            window.location.href = '/';
+            window.location.href = '/'; // 重定向到首页
         });
     }
 
@@ -49,7 +61,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // 保留默认 baseURL
 axios.defaults.baseURL = '/api/v1';
 
-// 移除拦截器中手动处理 /api/v1 的逻辑
+// 请求拦截器
 axios.interceptors.request.use((config) => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -58,15 +70,19 @@ axios.interceptors.request.use((config) => {
     return config;
 });
 
-// 添加响应拦截器处理401错误
+// 响应拦截器处理401错误
 axios.interceptors.response.use(
     response => response,
     error => {
         if (error.response && error.response.status === 401) {
             // 清除本地存储的token
             localStorage.removeItem('token');
-            // 重定向到登录页
-            window.location.href = '/login';
+            // 重定向到登录页，并传递当前路径以便登录后返回
+            // 但要注意避免重定向循环，如果 /login 本身也可能触发 401 (虽然不太可能)
+            if (window.location.pathname !== '/login') {
+                 // 可以考虑添加一个查询参数，指示用户是因为会话过期而被重定向
+                window.location.href = '/login?session_expired=true&redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+            }
         }
         return Promise.reject(error);
     }

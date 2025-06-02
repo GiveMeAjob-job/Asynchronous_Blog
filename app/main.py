@@ -555,6 +555,41 @@ async def my_posts(
         {"request": request, "posts": posts, "current_user": current_user}
     )
 
+async def get_current_user_optional(request: Request, db: AsyncSession = Depends(get_db)) -> Optional[User]:
+    token = request.cookies.get("access_token") # 或者从 localStorage 获取并由 JS 传递
+    if not token:
+        # 如果你想通过 Authorization header (由 axios 拦截器添加) 来判断
+        # 这在纯前端渲染模板时比较复杂，因为Jinja2渲染时JS还没运行
+        # 更简单的方式是依赖cookie或传递一个状态
+        return None
+    try:
+        # 这是一个简化的例子，实际中你可能需要调用类似 get_current_user 的逻辑
+        # 但要注意 get_current_user 会在 token 无效时抛出 HTTPException
+        # 这里我们需要一个不会在 token 无效时中断页面渲染的版本
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id: Optional[int] = payload.get("sub")
+        if user_id is None:
+            return None
+        user = await db.get(User, user_id)
+        return user
+    except (JWTError, HTTPException): # 捕获JWT错误或HTTPException
+        return None
+
+    sidebar_data = await get_sidebar_data(db) # 确保这个函数存在并返回期望数据
+
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "posts": posts, # 确保 posts 已定义
+            # ... (page, per_page, total, total_pages, has_next, has_prev, sort, category_id, tag_name) ...
+            "categories": sidebar_data["categories"],
+            "tags": sidebar_data["tags"],
+            "popular_posts": sidebar_data["popular_posts"],
+            "current_year": datetime.now().year,
+            "user_is_authenticated": user_is_authenticated # 新增传递这个状态
+        }
+    )
 
 @app.get("/dashboard/posts/new", response_class=HTMLResponse)
 async def new_post_page(

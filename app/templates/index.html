@@ -70,11 +70,13 @@
 
     <div class="col-md-4">
         {# 5. 侧边栏卡片: 应用新 CSS 中的 .sidebar-card #}
-        <aside class="sidebar-card mb-4">
-            <h4 class="sidebar-title">关于博客</h4> {# 使用新CSS的 .sidebar-title #}
-            <p class="text-secondary">欢迎来到Async Blog！这是一个使用FastAPI和异步技术构建的现代博客系统。</p>
-            <a href="/register" class="btn btn-primary w-100">立即注册</a> {# w-100 是 Bootstrap 工具类，如果移除Bootstrap CSS则无效 #}
-        </aside>
+<aside class="sidebar-card mb-4">
+    <h4 class="sidebar-title">关于博客</h4>
+    <p class="text-secondary">欢迎来到Async Blog！这是一个使用FastAPI和异步技术构建的现代博客系统。</p>
+    {% if not user_is_authenticated %} {# 根据认证状态显示/隐藏 #}
+<a href="/register" class="btn btn-primary w-100" id="sidebar-register-btn">立即注册</a>
+    {% endif %}
+</aside>
 
         <aside class="sidebar-card mb-4" id="categories">
             <h4 class="sidebar-title">分类</h4>
