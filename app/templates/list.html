@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}我的文章 - Async Blog{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <div class="list-group">
+            <a href="/dashboard" class="list-group-item list-group-item-action">
+                仪表盘总览
+            </a>
+            <a href="/dashboard/posts" class="list-group-item list-group-item-action active">
+                我的文章
+            </a>
+            <a href="/dashboard/posts/new" class="list-group-item list-group-item-action">
+                发布新文章
+            </a>
+            <a href="/dashboard/profile" class="list-group-item list-group-item-action">
+                个人资料
+            </a>
+        </div>
+    </div>
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3 class="card-title mb-0">我的文章</h3>
+                <a href="/dashboard/posts/new" class="btn btn-primary">写新文章</a>
+            </div>
+            <div class="card-body">
+                {% if posts %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>标题</th>
+                                <th>状态</th>
+                                <th>分类</th>
+                                <th>创建时间</th>
+                                <th>浏览量</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for post in posts %}
+                            <tr>
+                                <td>
+                                    {% if post.published %}
+                                    <a href="/post/{{ post.slug }}" target="_blank">{{ post.title }}</a>
+                                    {% else %}
+                                    {{ post.title }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if post.published %}
+                                    <span class="badge bg-success">已发布</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">草稿</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ post.category.name if post.category else '未分类' }}</td>
+                                <td>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>{{ post.views or 0 }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="/dashboard/posts/edit/{{ post.id }}" 
+                                           class="btn btn-outline-primary">编辑</a>
+                                        <button class="btn btn-outline-danger delete-post" 
+                                                data-id="{{ post.id }}"
+                                                data-title="{{ post.title }}">删除</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    您还没有创建任何文章。<a href="/dashboard/posts/new">立即创建第一篇文章</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const deleteButtons = document.querySelectorAll('.delete-post');
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', async function() {
+            const postId = this.getAttribute('data-id');
+            const postTitle = this.getAttribute('data-title');
+            
+            if (confirm(`确定要删除文章《${postTitle}》吗？此操作不可恢复。`)) {
+                try {
+                    await axios.delete(`/posts/${postId}`);
+                    window.location.reload();
+                } catch (error) {
+                    alert('删除失败：' + (error.response?.data?.detail || '未知错误'));
+                }
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

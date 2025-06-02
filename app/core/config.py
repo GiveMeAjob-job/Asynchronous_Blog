@@ -1,6 +1,6 @@
 # app/core/config.py
 from typing import Optional, List, Union
-from pydantic import EmailStr, PostgresDsn, RedisDsn, validator, Field
+from pydantic import EmailStr, validator, Field
 from pydantic_settings import BaseSettings
 import secrets
 
@@ -26,9 +26,9 @@ class Settings(BaseSettings):
     )
     ALLOWED_HOSTS: List[str] = Field(["*"], env="ALLOWED_HOSTS")
 
-    # 数据库配置
-    DATABASE_URL: PostgresDsn = Field(
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/async_blog",
+    # 数据库配置 - 使用字符串类型避免 PostgresDsn 问题
+    DATABASE_URL: str = Field(
+        "postgresql+asyncpg://postgres:postgres@db:5432/async_blog",
         env="DATABASE_URL"
     )
     DB_POOL_SIZE: int = Field(20, env="DB_POOL_SIZE")
@@ -36,23 +36,23 @@ class Settings(BaseSettings):
     DB_POOL_PRE_PING: bool = True
     DB_POOL_RECYCLE: int = 3600
 
-    # Redis配置
-    REDIS_URL: RedisDsn = Field(
-        "redis://localhost:6379/0",
+    # Redis配置 - 使用字符串类型避免 RedisDsn 问题
+    REDIS_URL: str = Field(
+        "redis://redis:6379/0",
         env="REDIS_URL"
     )
     REDIS_MAX_CONNECTIONS: int = Field(50, env="REDIS_MAX_CONNECTIONS")
-    CACHE_TTL: int = Field(3600, env="CACHE_TTL")  # 默认缓存时间（秒）
+    CACHE_TTL: int = Field(3600, env="CACHE_TTL")
 
     # RabbitMQ配置
     RABBITMQ_URL: str = Field(
-        "amqp://guest:guest@localhost:5672//",
+        "amqp://guest:guest@rabbitmq:5672//",
         env="RABBITMQ_URL"
     )
 
     # Celery配置
-    CELERY_BROKER_URL: str = Field(None, env="CELERY_BROKER_URL")
-    CELERY_RESULT_BACKEND: str = Field(None, env="CELERY_RESULT_BACKEND")
+    CELERY_BROKER_URL: Optional[str] = Field(None, env="CELERY_BROKER_URL")
+    CELERY_RESULT_BACKEND: Optional[str] = Field(None, env="CELERY_RESULT_BACKEND")
 
     @validator("CELERY_BROKER_URL", pre=True)
     def set_celery_broker(cls, v, values):
@@ -63,7 +63,7 @@ class Settings(BaseSettings):
     @validator("CELERY_RESULT_BACKEND", pre=True)
     def set_celery_backend(cls, v, values):
         if v is None:
-            redis_url = str(values.get("REDIS_URL", ""))
+            redis_url = values.get("REDIS_URL", "")
             # 使用不同的 Redis 数据库存储 Celery 结果
             if redis_url and "/0" in redis_url:
                 return redis_url.replace("/0", "/1")
@@ -146,11 +146,14 @@ class Settings(BaseSettings):
 
     def get_database_url(self, async_mode: bool = True) -> str:
         """获取数据库URL，支持同步和异步模式"""
-        url = str(self.DATABASE_URL)
-        if async_mode and "postgresql://" in url:
+        # 现在 DATABASE_URL 已经是字符串，可以安全使用 startswith
+        url = self.DATABASE_URL
+
+        if async_mode and "postgresql://" in url and "postgresql+asyncpg://" not in url:
             url = url.replace("postgresql://", "postgresql+asyncpg://")
         elif not async_mode and "postgresql+asyncpg://" in url:
             url = url.replace("postgresql+asyncpg://", "postgresql://")
+
         return url
 
 

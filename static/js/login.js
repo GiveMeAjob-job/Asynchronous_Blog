@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', function() {
     const loginForm = document.getElementById('login-form');
     const loginError = document.getElementById('login-error');
@@ -24,12 +25,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             );
 
-            // 登录成功，保存token
-            localStorage.setItem('token', response.data.access_token);
+            // 登录成功，保存token到localStorage和cookie
+            const token = response.data.access_token;
+            localStorage.setItem('token', token);
+            
+            // 设置cookie
+            const maxAge = rememberMe ? 7 * 24 * 60 * 60 : 24 * 60 * 60; // 7天或1天
+            document.cookie = `access_token=${token}; path=/; max-age=${maxAge}`;
 
-            // 如果勾选了"记住我"，可以在这里设置持久化存储
-            // 重定向到首页
-            window.location.href = '/';
+            // 重定向到首页或之前的页面
+            const urlParams = new URLSearchParams(window.location.search);
+            const redirect = urlParams.get('redirect') || '/';
+            window.location.href = redirect;
         } catch (error) {
             console.error('登录失败', error);
 
@@ -42,4 +49,13 @@ document.addEventListener('DOMContentLoaded', function() {
             loginError.classList.remove('d-none');
         }
     });
+    
+    // 检查是否是从注册页面跳转过来的
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('registered') === 'true') {
+        const successAlert = document.createElement('div');
+        successAlert.className = 'alert alert-success';
+        successAlert.textContent = '注册成功！请登录您的账号。';
+        loginError.parentNode.insertBefore(successAlert, loginError);
+    }
 });

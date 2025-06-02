@@ -474,6 +474,8 @@ async def startup_event():
         logger.error(f"Redis connection failed: {e}")
 
 
+# 在 app/main.py 的 create_admin_user 函数中添加更详细的错误处理
+
 async def create_admin_user():
     """在应用启动时创建超级管理员账号（如果不存在）"""
     async with async_session() as db:
@@ -498,8 +500,12 @@ async def create_admin_user():
             else:
                 logger.info("Admin user already exists")
         except Exception as e:
-            logger.error(f"Error creating admin user: {e}")
-
+            # 如果是唯一约束冲突，说明其他进程已经创建了admin用户
+            if "duplicate key value violates unique constraint" in str(e):
+                logger.info("Admin user already exists (created by another process)")
+            else:
+                logger.error(f"Error creating admin user: {e}")
+            await db.rollback()
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -526,4 +532,47 @@ async def server_error_handler(request: Request, exc):
         "500.html",
         {"request": request, "current_year": datetime.now().year},
         status_code=500
+    )
+
+
+@app.get("/dashboard/posts", response_class=HTMLResponse)
+async def my_posts(
+        request: Request,
+        current_user: User = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db)
+):
+    """我的文章列表页面"""
+    # 查询当前用户的文章
+    query = select(Post).options(
+        selectinload(Post.category)
+    ).where(Post.author_id == current_user.id).order_by(Post.created_at.desc())
+
+    result = await db.execute(query)
+    posts = result.scalars().all()
+
+    return templates.TemplateResponse(
+        "posts/list.html",
+        {"request": request, "posts": posts, "current_user": current_user}
+    )
+
+
+@app.get("/dashboard/posts/new", response_class=HTMLResponse)
+async def new_post_page(
+        request: Request,
+        current_user: User = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db)
+):
+    """创建新文章页面"""
+    # 获取分类和标签数据
+    categories = await db.execute(select(Category))
+    tags = await db.execute(select(Tag))
+
+    return templates.TemplateResponse(
+        "posts/new.html",
+        {
+            "request": request,
+            "categories": categories.scalars().all(),
+            "tags": tags.scalars().all(),
+            "current_user": current_user
+        }
     )

@@ -28,12 +28,16 @@ function checkAuthStatus() {
 }
 
 // 退出登录
+
+// 退出登录
 document.addEventListener('DOMContentLoaded', function() {
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', function(e) {
             e.preventDefault();
             localStorage.removeItem('token');
+            // 清除cookie
+            document.cookie = 'access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
             window.location.href = '/';
         });
     }

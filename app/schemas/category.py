@@ -36,15 +36,18 @@ class Category(CategoryBase):
     id: int
 
     class Config:
-        from_attributes = True
+        from_attributes = True  # 修复：使用 Pydantic v2 语法
 
 
 class CategoryDetail(Category):
     post_count: int = 0
 
+    class Config:
+        from_attributes = True  # 修复：使用 Pydantic v2 语法
 
-# app/schemas/tag.py
-from typing import Optional, List
+
+# ---- Tag schemas ----
+from typing import List
 from pydantic import BaseModel, Field, validator
 import re
 
@@ -56,7 +59,7 @@ class TagBase(BaseModel):
     def validate_name(cls, v):
         if not re.match(r'^[\u4e00-\u9fa5a-zA-Z0-9\-_]+$', v):
             raise ValueError('标签名称只能包含中英文、数字、横线和下划线')
-        return v.strip().lower()  # 标签名统一小写
+        return v.strip().lower()
 
 
 class TagCreate(TagBase):
@@ -79,11 +82,14 @@ class Tag(TagBase):
     id: int
 
     class Config:
-        from_attributes = True
+        from_attributes = True  # 修复：使用 Pydantic v2 语法
 
 
 class TagDetail(Tag):
     post_count: int = 0
+
+    class Config:
+        from_attributes = True  # 修复：使用 Pydantic v2 语法
 
 
 class TagCloudItem(BaseModel):

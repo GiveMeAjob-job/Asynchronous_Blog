@@ -1,3 +1,4 @@
+# app/schemas/post.py
 from typing import Optional, List, Any
 from datetime import datetime
 from pydantic import BaseModel, validator
@@ -16,7 +17,7 @@ class Tag(TagBase):
     id: int
 
     class Config:
-        from_attributes = True
+        from_attributes = True  # 修复：使用 Pydantic v2 语法
 
 
 class CategoryBase(BaseModel):
@@ -32,7 +33,7 @@ class Category(CategoryBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # 修复：使用 Pydantic v2 语法
 
 
 class CommentBase(BaseModel):
@@ -51,7 +52,7 @@ class Comment(CommentBase):
     post_id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # 修复：使用 Pydantic v2 语法
 
 
 class PostBase(BaseModel):
@@ -88,7 +89,7 @@ class Post(PostBase):
     tags: List[Tag] = []
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # 修复：使用 Pydantic v2 语法
 
 
 class PostDetail(Post):

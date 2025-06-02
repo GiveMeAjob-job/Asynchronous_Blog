@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}搜索 - Async Blog{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">搜索文章</h1>
+        
+        <!-- 搜索表单 -->
+        <form method="get" action="/search" class="mb-4">
+            <div class="input-group">
+                <input type="text" name="q" class="form-control" 
+                       placeholder="搜索文章..." value="{{ query or '' }}">
+                <button class="btn btn-primary" type="submit">搜索</button>
+            </div>
+        </form>
+        
+        <!-- 搜索结果 -->
+        {% if query or category or tag %}
+            <div class="alert alert-info">
+                {% if query %}
+                    搜索 "<strong>{{ query }}</strong>" 
+                {% endif %}
+                {% if category %}
+                    分类 "<strong>{{ category }}</strong>"
+                {% endif %}
+                {% if tag %}
+                    标签 "<strong>{{ tag }}</strong>"
+                {% endif %}
+                共找到 <strong>{{ total }}</strong> 个结果
+            </div>
+            
+            {% if posts %}
+                <!-- 文章列表 -->
+                {% for post in posts %}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <h2 class="card-title h4">
+                                <a href="/post/{{ post.slug }}" class="text-decoration-none">
+                                    {{ post.title }}
+                                </a>
+                            </h2>
+                            <p class="card-text text-muted mb-2">
+                                <small>
+                                    <i class="fas fa-user"></i> {{ post.author.username }}
+                                    <i class="fas fa-calendar ms-2"></i> {{ post.created_at.strftime('%Y-%m-%d') }}
+                                    {% if post.category %}
+                                        <i class="fas fa-folder ms-2"></i> {{ post.category.name }}
+                                    {% endif %}
+                                </small>
+                            </p>
+                            
+                            <!-- 标签 -->
+                            {% if post.tags %}
+                                <div class="mb-2">
+                                    {% for tag in post.tags %}
+                                        <span class="badge bg-secondary me-1">{{ tag.name }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            
+                            <!-- 文章摘要 -->
+                            <p class="card-text">
+                                {{ post.content[:200] }}{% if post.content|length > 200 %}...{% endif %}
+                            </p>
+                            
+                            <a href="/post/{{ post.slug }}" class="btn btn-primary btn-sm">阅读更多</a>
+                        </div>
+                    </div>
+                {% endfor %}
+                
+                <!-- 分页 -->
+                {% if total > 10 %}
+                    <nav aria-label="搜索结果分页">
+                        <ul class="pagination justify-content-center">
+                            {% if page > 1 %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?q={{ query or '' }}&category={{ category or '' }}&tag={{ tag or '' }}&page={{ page - 1 }}">上一页</a>
+                                </li>
+                            {% endif %}
+                            
+                            {% for p in range(1, (total // 10) + 2) %}
+                                {% if p == page %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ p }}</span>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?q={{ query or '' }}&category={{ category or '' }}&tag={{ tag or '' }}&page={{ p }}">{{ p }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if page < (total // 10) + 1 %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?q={{ query or '' }}&category={{ category or '' }}&tag={{ tag or '' }}&page={{ page + 1 }}">下一页</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            {% else %}
+                <div class="alert alert-warning">
+                    <h4>没有找到相关文章</h4>
+                    <p>请尝试：</p>
+                    <ul>
+                        <li>使用不同的关键词</li>
+                        <li>检查拼写是否正确</li>
+                        <li>使用更通用的搜索词</li>
+                    </ul>
+                </div>
+            {% endif %}
+        {% else %}
+            <!-- 搜索建议 -->
+            <div class="row">
+                <div class="col-md-6">
+                    <h3>热门标签</h3>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for tag in popular_tags %}
+                            <a href="/search?tag={{ tag.name }}" class="badge bg-secondary text-decoration-none">
+                                {{ tag.name }}
+                            </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <h3>文章分类</h3>
+                    <div class="list-group">
+                        {% for category in categories %}
+                            <a href="/search?category={{ category.name }}" class="list-group-item list-group-item-action">
+                                {{ category.name }}
+                                <span class="badge bg-primary rounded-pill">{{ category.post_count }}</span>
+                            </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}创建新文章 - Async Blog{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <div class="list-group">
+            <a href="/dashboard" class="list-group-item list-group-item-action">
+                仪表盘总览
+            </a>
+            <a href="/dashboard/posts" class="list-group-item list-group-item-action">
+                我的文章
+            </a>
+            <a href="/dashboard/posts/new" class="list-group-item list-group-item-action active">
+                发布新文章
+            </a>
+            <a href="/dashboard/profile" class="list-group-item list-group-item-action">
+                个人资料
+            </a>
+        </div>
+    </div>
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">创建新文章</h3>
+            </div>
+            <div class="card-body">
+                <form id="new-post-form">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">标题</label>
+                        <input type="text" class="form-control" id="title" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="slug" class="form-label">URL别名（可选）</label>
+                        <input type="text" class="form-control" id="slug" 
+                               placeholder="将根据标题自动生成">
+                        <div class="form-text">用于文章URL，只能包含字母、数字和横线</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="category" class="form-label">分类</label>
+                        <select class="form-select" id="category">
+                            <option value="">选择分类...</option>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="tags" class="form-label">标签</label>
+                        <input type="text" class="form-control" id="tags" 
+                               placeholder="输入标签，用逗号分隔">
+                        <div class="form-text">可用标签：
+                            {% for tag in tags %}
+                                <span class="badge bg-secondary">{{ tag.name }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="content" class="form-label">内容</label>
+                        <textarea class="form-control" id="content" rows="15" required
+                                  placeholder="支持Markdown格式"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="published">
+                            <label class="form-check-label" for="published">
+                                立即发布
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-block">
+                        <button type="submit" class="btn btn-primary">保存文章</button>
+                        <a href="/dashboard/posts" class="btn btn-secondary">取消</a>
+                    </div>
+                    
+                    <div id="post-error" class="alert alert-danger mt-3 d-none"></div>
+                    <div id="post-success" class="alert alert-success mt-3 d-none"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('new-post-form');
+    const errorDiv = document.getElementById('post-error');
+    const successDiv = document.getElementById('post-success');
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        errorDiv.classList.add('d-none');
+        successDiv.classList.add('d-none');
+        
+        const data = {
+            title: document.getElementById('title').value,
+            slug: document.getElementById('slug').value || undefined,
+            content: document.getElementById('content').value,
+            category_id: parseInt(document.getElementById('category').value) || null,
+            published: document.getElementById('published').checked,
+            tags: document.getElementById('tags').value.split(',').map(t => t.trim()).filter(t => t)
+        };
+        
+        try {
+            const response = await axios.post('/posts', data);
+            successDiv.textContent = '文章创建成功！';
+            successDiv.classList.remove('d-none');
+            
+            // 3秒后跳转到文章列表
+            setTimeout(() => {
+                window.location.href = '/dashboard/posts';
+            }, 3000);
+        } catch (error) {
+            console.error('创建文章失败', error);
+            errorDiv.textContent = error.response?.data?.detail || '创建文章失败，请稍后再试';
+            errorDiv.classList.remove('d-none');
+        }
+    });
+    
+    // 自动生成slug
+    document.getElementById('title').addEventListener('blur', function() {
+        const slugInput = document.getElementById('slug');
+        if (!slugInput.value) {
+            slugInput.value = this.value.toLowerCase()
+                .replace(/[^a-z0-9\u4e00-\u9fa5]/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '');
+        }
+    });
+});
+</script>
+{% endblock %}

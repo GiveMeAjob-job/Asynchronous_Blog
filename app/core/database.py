@@ -1,4 +1,4 @@
-# app/core/database.py
+# app/core/database.py - 修复数据库URL处理
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 import logging
@@ -6,7 +6,7 @@ import logging
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base, DeclarativeMeta
 from sqlalchemy.pool import NullPool, QueuePool
-from sqlalchemy import event, MetaData
+from sqlalchemy import event, MetaData, text
 
 from app.core.config import settings
 
@@ -24,18 +24,21 @@ naming_convention = {
 metadata = MetaData(naming_convention=naming_convention)
 Base: DeclarativeMeta = declarative_base(metadata=metadata)
 
+# 修复：正确获取数据库URL
+database_url = settings.get_database_url(async_mode=True)
+
 # 根据环境选择连接池
 if settings.ENVIRONMENT == "testing":
     # 测试环境使用 NullPool
     engine = create_async_engine(
-        settings.get_database_url(async_mode=True),
+        database_url,
         echo=False,
         poolclass=NullPool,
     )
 else:
     # 生产环境使用 QueuePool
     engine = create_async_engine(
-        settings.get_database_url(async_mode=True),
+        database_url,
         echo=settings.DEBUG,
         pool_size=settings.DB_POOL_SIZE,
         max_overflow=settings.DB_MAX_OVERFLOW,
@@ -44,7 +47,6 @@ else:
         connect_args={
             "server_settings": {"jit": "off"},
             "command_timeout": 60,
-            "prepared_statement_cache_size": 0,
         }
     )
 
@@ -119,7 +121,7 @@ class DatabaseManager:
         """检查数据库连接"""
         try:
             async with engine.connect() as conn:
-                await conn.execute("SELECT 1")
+                await conn.execute(text("SELECT 1"))
             return True
         except Exception as e:
             logger.error(f"Database connection failed: {e}")
@@ -144,11 +146,13 @@ class DatabaseManager:
         logger.info("Database connections closed")
 
 
-# 数据库事件监听器
+# 数据库事件监听器 - 修复SQLite检查
 @event.listens_for(engine.sync_engine, "connect")
 def set_sqlite_pragma(dbapi_conn, connection_record):
     """为 SQLite 设置优化参数"""
-    if settings.DATABASE_URL.startswith("sqlite"):
+    # 修复：检查字符串而不是PostgresDsn对象
+    db_url = str(settings.DATABASE_URL)
+    if db_url.startswith("sqlite"):
         cursor = dbapi_conn.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.execute("PRAGMA journal_mode=WAL")
