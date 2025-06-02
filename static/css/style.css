@@ -1383,3 +1383,91 @@ footer {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-muted);
 }
+
+/* 在 style.css 的表单样式部分添加以下内容： */
+
+/* 表单错误/成功/警告消息 */
+.form-message {
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border: 1px solid;
+    position: relative;
+}
+
+.form-message.error {
+    background-color: rgba(255, 107, 107, 0.15);
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.form-message.success {
+    background-color: rgba(40, 167, 69, 0.15);
+    color: #28a745;
+    border-color: #28a745;
+}
+
+.form-message.warning {
+    background-color: rgba(255, 193, 7, 0.15);
+    color: #ffc107;
+    border-color: #ffc107;
+}
+
+/* 改进的空状态消息 */
+.empty-state-message {
+    padding: var(--spacing-xl);
+    text-align: center;
+    color: var(--color-text-muted);
+}
+
+.empty-state-message h4 {
+    color: var(--color-text-secondary);
+    margin-bottom: var(--spacing-md);
+    font-size: 1.25rem;
+}
+
+/* 搜索结果摘要 */
+.search-results-summary {
+    padding: var(--spacing-md);
+    background-color: rgba(255, 107, 107, 0.1);
+    border-left: 4px solid var(--color-primary);
+    border-radius: 4px;
+    color: var(--color-text-secondary);
+}
+
+.search-results-summary strong {
+    color: var(--color-text-primary);
+}
+
+/* 搜索表单样式 */
+.search-form .input-group {
+    display: flex;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+}
+
+.search-form .form-control {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-right: none;
+    flex: 1;
+}
+
+.search-form .btn {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+/* 响应式：搜索按钮在小屏幕上只显示图标 */
+@media (max-width: 768px) {
+    .search-form .btn .d-none.d-md-inline {
+        display: none !important;
+    }
+}
