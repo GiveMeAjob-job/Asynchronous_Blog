@@ -706,41 +706,41 @@ async def generic_exception_handler(request: Request, exc: Exception):
 # 移除了重复的 /dashboard/posts 和 /dashboard/posts/new 路由定义
 # 移除了 my_posts_alias 路由，因为模板路径应直接在 my_posts 中指定正确
 
-@app.get("/dashboard/posts/edit/{post_id}", response_class=HTMLResponse)
-async def edit_post_page(
+@app.get("/dashboard/posts/edit/{post_id}", response_class=HTMLResponse, name="edit_post_page_route") # <--- 添加这个 name
+async def edit_post_page( # 函数名可以是 edit_post_page 或其他，重要的是 name 参数
     request: Request,
     post_id: int,
-    current_user: User = Depends(get_dashboard_user), # 认证
-    db: AsyncSession = Depends(get_db) # 获取数据库会话
+    current_user: User = Depends(get_dashboard_user),
+    # 如果 get_dashboard_user 已处理 db，或在此函数内部使用 async_session() as db:
+    # db: AsyncSession = Depends(get_db)
 ):
-    if isinstance(current_user, RedirectResponse): # 处理 get_dashboard_user 可能返回的重定向
+    if isinstance(current_user, RedirectResponse):
         return current_user
 
-    post_to_edit = await db.get(Post, post_id)
+    async with async_session() as db: # 使用新的会话，或者确保 get_db 能正确提供
+        post_to_edit = await db.get(Post, post_id, options=[selectinload(Post.tags)])
 
-    if not post_to_edit:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文章未找到")
+        if not post_to_edit:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文章未找到")
 
-    # 权限检查：确保当前用户是文章作者或管理员
-    if post_to_edit.author_id != current_user.id and not current_user.is_superuser:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="没有权限编辑此文章")
+        if post_to_edit.author_id != current_user.id and not current_user.is_superuser:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="没有权限编辑此文章")
 
-    # 获取分类和标签数据，用于表单中的下拉选择或参考
-    categories_result = await db.execute(select(Category))
-    tags_result = await db.execute(select(Tag))
-    categories_data = categories_result.scalars().all()
-    tags_data = tags_result.scalars().all()
+        categories_result = await db.execute(select(Category))
+        tags_result = await db.execute(select(Tag))
+        categories_data = categories_result.scalars().all()
+        tags_data = tags_result.scalars().all()
 
-    current_post_tag_names = [tag.name for tag in post_to_edit.tags] # 获取当前文章的标签名称列表
+        current_post_tag_names = [tag.name for tag in post_to_edit.tags]
 
     return templates.TemplateResponse(
-        "posts/edit.html", # 您需要创建这个模板文件
+        "posts/edit.html",
         {
             "request": request,
             "post": post_to_edit,
             "categories": categories_data,
-            "tags": tags_data, # 所有可用标签
-            "current_post_tags_str": ",".join(current_post_tag_names), # 将当前标签转为逗号分隔字符串给表单
+            "tags": tags_data,
+            "current_post_tags_str": ",".join(current_post_tag_names),
             "current_user": current_user,
             "current_year": datetime.now().year
         }

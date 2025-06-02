@@ -3,33 +3,33 @@
 {% block title %}我的文章 - Async Blog{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-3">
-        <div class="list-group">
-            <a href="/dashboard" class="list-group-item list-group-item-action">
-                仪表盘总览
-            </a>
-            <a href="/dashboard/posts" class="list-group-item list-group-item-action active">
-                我的文章
-            </a>
-            <a href="/dashboard/posts/new" class="list-group-item list-group-item-action">
-                发布新文章
-            </a>
-            <a href="/dashboard/profile" class="list-group-item list-group-item-action">
-                个人资料
-            </a>
+{# 1. 添加与 dashboard.html 类似的整体布局结构 #}
+<div class="container mt-section">
+    <div class="row">
+        <div class="col-md-3">
+            {# 仪表盘侧边导航菜单 - 使用新样式 #}
+            <nav class="dashboard-nav sidebar-card p-0">
+                <a href="{{ url_for('dashboard') }}" class="dashboard-nav-link">仪表盘总览</a>
+                <a href="{{ url_for('my_posts') }}" class="dashboard-nav-link active">我的文章</a>
+                <a href="{{ url_for('new_post_page') }}" class="dashboard-nav-link">发布新文章</a>
+                {# 确保 user_profile_page 路由已在 main.py 定义并命名 #}
+                <a href="{{ url_for('user_profile_page') }}" class="dashboard-nav-link">个人资料</a>
+            </nav>
         </div>
-    </div>
-    <div class="col-md-9">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h3 class="card-title mb-0">我的文章</h3>
-                <a href="/dashboard/posts/new" class="btn btn-primary">写新文章</a>
-            </div>
-            <div class="card-body">
+        <div class="col-md-9">
+            {# 2. 主要内容区域 - 移除 Bootstrap card, 使用新样式 content-panel #}
+            <section class="content-panel">
+                {# 3. 标题和“写新文章”按钮的布局 - 使用 flex 工具类或自定义样式 #}
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h3 class="section-title text-start mb-0">我的文章</h3>
+                    {# 4. 按钮样式 - 应用新CSS的 .btn .btn-primary #}
+                    <a href="{{ url_for('new_post_page') }}" class="btn btn-primary">写新文章</a>
+                </div>
+
                 {% if posts %}
                 <div class="table-responsive">
-                    <table class="table table-hover">
+                    {# 5. 表格样式 - 应用新CSS的 .custom-table #}
+                    <table class="custom-table">
                         <thead>
                             <tr>
                                 <th>标题</th>
@@ -45,41 +45,52 @@
                             <tr>
                                 <td>
                                     {% if post.published %}
-                                    <a href="/post/{{ post.slug }}" target="_blank">{{ post.title }}</a>
+                                    {# 6. 链接样式 - 应用新CSS的 .text-primary 或默认链接样式 #}
+                                    <a href="{{ url_for('post_detail', slug=post.slug) }}" target="_blank" class="text-primary">{{ post.title }}</a>
                                     {% else %}
                                     {{ post.title }}
                                     {% endif %}
                                 </td>
                                 <td>
+                                    {# 7. 状态徽章 - 应用新CSS的 .status-badge #}
                                     {% if post.published %}
-                                    <span class="badge bg-success">已发布</span>
+                                    <span class="status-badge status-published">已发布</span>
                                     {% else %}
-                                    <span class="badge bg-secondary">草稿</span>
+                                    <span class="status-badge status-draft">草稿</span>
                                     {% endif %}
                                 </td>
                                 <td>{{ post.category.name if post.category else '未分类' }}</td>
                                 <td>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
                                 <td>{{ post.views or 0 }}</td>
                                 <td>
-                                    <div class="btn-group btn-group-sm" role="group">
-                                        <a href="/dashboard/posts/edit/{{ post.id }}"
-                                           class="btn btn-outline-primary">编辑</a>
-                                        <button class="btn btn-outline-danger delete-post"
+                                    {# 8. 操作按钮 - 移除 btn-group, 应用新CSS的按钮样式 #}
+                                    <div class="d-flex gap-2"> {# 使用 flex 和 gap 控制按钮间距 #}
+                                        {# 9. 确保 'edit_post_page_route' 是 main.py 中编辑路由的正确 name #}
+                                        <a href="{{ url_for('edit_post_page_route', post_id=post.id) }}"
+                                           class="btn btn-outline btn-sm">编辑</a>
+                                        <button class="btn btn-danger-outline btn-sm delete-post"
                                                 data-id="{{ post.id }}"
                                                 data-title="{{ post.title }}">删除</button>
                                     </div>
+                                </td>
+                            </tr>
+                            {% else %} {# 10. 处理 posts 为空的情况，替换掉之前错误的 {% empty %} #}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">
+                                    您还没有创建任何文章。<a href="{{ url_for('new_post_page') }}" class="text-primary">立即创建第一篇文章</a>
                                 </td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
-                {% else %}
-                <div class="alert alert-info">
-                    您还没有创建任何文章。<a href="/dashboard/posts/new">立即创建第一篇文章</a>
+                {% else %} {# 这个 else 对应 {% if posts %}，如果 posts 列表本身就为空（没有进入for循环） #}
+                <div class="empty-state-message text-center py-5"> {# 使用自定义的提示消息样式 #}
+                    <h4>您还没有创建任何文章</h4>
+                    <p><a href="{{ url_for('new_post_page') }}" class="text-primary">立即创建第一篇文章</a></p>
                 </div>
                 {% endif %}
-            </div>
+            </section>
         </div>
     </div>
 </div>
@@ -96,10 +107,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (confirm(`确定要删除文章《${postTitle}》吗？此操作不可恢复。`)) {
                 try {
-                    await axios.delete(`/posts/${postId}`);
+                    // 确保 axios.defaults.baseURL 在 main.js 中已设置为 /api/v1
+                    await axios.delete(`/posts/${postId}`); // 实际请求 /api/v1/posts/{postId}
                     window.location.reload();
                 } catch (error) {
-                    alert('删除失败：' + (error.response?.data?.detail || '未知错误'));
+                    console.error('删除文章失败:', error); // 添加 console.error
+                    let errorMessage = '删除失败，请稍后再试';
+                    if (error.response && error.response.data && error.response.data.detail) {
+                        errorMessage = error.response.data.detail;
+                    }
+                    alert(errorMessage);
                 }
             }
         });

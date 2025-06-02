@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}
+    错误 {{ status_code }} - Async Blog
+{% endblock %}
+
+{% block hero_section %}
+    {# 这个页面通常不需要 hero section #}
+{% endblock %}
+
+{% block content %}
+<div class="container mt-section text-center">
+    <div class="content-panel" style="padding: var(--spacing-xl);">
+        <h1 class="section-title mb-3">发生错误 ({{ status_code }})</h1>
+
+        {% if detail %}
+            <p class="lead text-secondary mb-4">{{ detail }}</p>
+        {% else %}
+            <p class="lead text-secondary mb-4">抱歉，处理您的请求时发生了一个意外错误。</p>
+        {% endif %}
+
+        <p class="mb-4">请尝试返回<a href="{{ url_for('index') }}" class="text-primary">首页</a>，或稍后再试。</p>
+
+        {# 可选：如果您想显示更详细的错误给管理员或在开发模式下 #}
+        {# {% if settings.DEBUG and exc_info %}
+        <div class="text-start mt-5 p-3" style="background-color: var(--color-dark-bg); border-radius: 8px; font-family: monospace; font-size: 0.8rem; max-height: 300px; overflow-y: auto;">
+            <pre><code>{{ exc_info }}</code></pre>
+        </div>
+        {% endif %} #}
+    </div>
+</div>
+{% endblock %}
