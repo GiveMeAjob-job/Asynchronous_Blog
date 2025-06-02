@@ -3,6 +3,16 @@ from typing import Optional, List, Any
 from datetime import datetime
 from pydantic import BaseModel, validator
 import re
+from .tag import TagCreate # Or just List[str] if you handle tag creation separately
+
+class PostCreate(PostBase):
+    slug: Optional[str] = None
+    tags: Optional[List[str]] = [] # Add this line (or List[TagCreate])
+
+    @validator('slug', pre=True, always=True)
+    def generate_slug(cls, v, values):
+        # ...
+        return v
 
 
 class TagBase(BaseModel):

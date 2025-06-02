@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from app.models import Tag, post_tag # Ensure Tag is imported
 from sqlalchemy.orm import selectinload
 
 # 导入相关模块
@@ -118,15 +119,35 @@ async def create_post(
             detail="该slug已被使用",
         )
 
-    # 创建文章
+    # Create post object without tags first
     post = Post(
         title=post_in.title,
-        slug=post_in.slug,
+        slug=post_in.slug, # Ensure slug generation logic is robust
         content=post_in.content,
         published=post_in.published,
         author_id=current_user.id,
         category_id=post_in.category_id,
     )
+
+    if post_in.tags:
+        for tag_name in post_in.tags:
+            tag_name_lower = tag_name.strip().lower()
+            if not tag_name_lower:
+                continue
+
+            # Check if tag exists
+            tag_query = select(Tag).where(func.lower(Tag.name) == tag_name_lower)
+            result = await db.execute(tag_query)
+            tag = result.scalars().first()
+
+            if not tag:
+                # Create tag if it doesn't exist
+                tag = Tag(name=tag_name_lower)
+                db.add(tag)
+                # You might need to commit here or handle it with the post commit
+                # await db.flush() # To get tag.id if needed before post commit
+            post.tags.append(tag)
+
     db.add(post)
     await db.commit()
     await db.refresh(post)

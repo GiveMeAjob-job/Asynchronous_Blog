@@ -65,42 +65,4 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-
-    // 加载相关文章
-    if (relatedPostsContainer) {
-        const loadRelatedPosts = async () => {
-            try {
-                const postSlug = window.location.pathname.split('/').pop();
-                // 仍然使用相对路径以配合 baseURL
-                const response = await axios.get(`/posts/${postSlug}/related`);
-
-                const relatedPosts = response.data;
-                if (relatedPosts.length === 0) {
-                    relatedPostsContainer.innerHTML = '<p class="text-center">暂无相关文章</p>';
-                    return;
-                }
-
-                let postsHtml = '<ul class="list-group list-group-flush">';
-                relatedPosts.forEach(post => {
-                    postsHtml += `
-                        <li class="list-group-item">
-                            <a href="/post/${post.slug}" class="text-decoration-none">
-                                ${post.title}
-                            </a>
-                        </li>
-                    `;
-                });
-                postsHtml += '</ul>';
-
-                relatedPostsContainer.innerHTML = postsHtml;
-
-            } catch (error) {
-                console.error('加载相关文章失败', error);
-                relatedPostsContainer.innerHTML = '<p class="text-center text-muted">加载相关文章失败</p>';
-            }
-        };
-
-        // 延迟加载相关文章，优先渲染主要内容
-        setTimeout(loadRelatedPosts, 500);
-    }
 });

@@ -84,14 +84,21 @@
                     相关文章
                 </div>
                 <div class="card-body">
-                    <div id="related-posts">
-                        <!-- 相关文章将通过JavaScript动态加载 -->
-                        <div class="text-center">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">加载中...</span>
-                            </div>
-                        </div>
-                    </div>
+ <div id="related-posts">
+    {% if related_posts %}
+        <ul class="list-group list-group-flush">
+        {% for rel_post in related_posts %}
+            <li class="list-group-item">
+                <a href="/post/{{ rel_post.slug }}" class="text-decoration-none">
+                    {{ rel_post.title }}
+                </a>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p class="text-center text-muted">暂无相关文章</p>
+    {% endif %}
+</div>
                 </div>
             </div>
         </div>

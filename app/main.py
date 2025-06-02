@@ -551,7 +551,7 @@ async def my_posts(
     posts = result.scalars().all()
 
     return templates.TemplateResponse(
-        "posts/list.html",
+        "list.html",  # Changed from "posts/list.html"
         {"request": request, "posts": posts, "current_user": current_user}
     )
 
@@ -568,7 +568,7 @@ async def new_post_page(
     tags = await db.execute(select(Tag))
 
     return templates.TemplateResponse(
-        "posts/new.html",
+        "new.html",  # Changed from "posts/new.html"
         {
             "request": request,
             "categories": categories.scalars().all(),

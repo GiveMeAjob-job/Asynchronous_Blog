@@ -97,13 +97,13 @@ document.addEventListener('DOMContentLoaded', function() {
         button.addEventListener('click', function() {
             const postId = this.getAttribute('data-id');
             if(confirm('确定要删除这篇文章吗？')) {
-                axios.delete(`/api/posts/${postId}`)
-                    .then(response => {
-                        window.location.reload();
-                    })
-                    .catch(error => {
-                        alert('删除失败：' + error.response.data.detail);
-                    });
+axios.delete(`/posts/${postId}`) // Corrected: Removed leading /api
+    .then(response => {
+        window.location.reload();
+    })
+    .catch(error => {
+        alert('删除失败：' + error.response.data.detail);
+    });
             }
         });
     });
