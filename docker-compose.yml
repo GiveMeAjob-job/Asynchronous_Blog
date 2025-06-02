@@ -1,8 +1,12 @@
-# docker-compose.yml
-version: '3.8'
+# ----- 公共 build 选项：所有自建服务引用 -----
+x-common-build: &common-build
+  context: .
+  dockerfile: Dockerfile
+  target: runtime
+
+
 
 services:
-  # PostgreSQL 数据库
   db:
     image: postgres:15-alpine
     container_name: async_blog_db
@@ -15,35 +19,28 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    ports:
-      - "5432:5432"
+    ports: ["5432:5432"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
-    networks:
-      - blog_network
+    networks: [blog_network]
 
-  # Redis 缓存
   redis:
     image: redis:7-alpine
     container_name: async_blog_redis
     restart: unless-stopped
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
-    volumes:
-      - redis_data:/data
-    ports:
-      - "6379:6379"
+    volumes: [redis_data:/data]
+    ports: ["6379:6379"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
-    networks:
-      - blog_network
+    networks: [blog_network]
 
-  # RabbitMQ 消息队列
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
     container_name: async_blog_rabbitmq
@@ -52,137 +49,95 @@ services:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
       RABBITMQ_DEFAULT_VHOST: /
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    ports:
-      - "5672:5672"
-      - "15672:15672"
+    volumes: [rabbitmq_data:/var/lib/rabbitmq]
+    ports: ["5672:5672", "15672:15672"]
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - blog_network
+    networks: [blog_network]
 
-  # Web 应用
   web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        - ENVIRONMENT=production
+    build: *common-build
     container_name: async_blog_web
     restart: unless-stopped
-    env_file:
-      - .env
+    env_file: [.env]
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/async_blog
-      - REDIS_URL=redis://redis:6379/0
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672//
-      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/async_blog
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672//
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
     volumes:
       - ./static:/app/static
       - ./uploads:/app/uploads
       - ./logs:/app/logs
-    ports:
-      - "8000:8000"
+    ports: ["8000:8000"]
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-    networks:
-      - blog_network
-    command: bash -c "alembic upgrade head && gunicorn app.main:app -c gunicorn.conf.py"
+    networks: [blog_network]
+    command: >
+      bash -c "alembic upgrade head &&
+               gunicorn app.main:app -c gunicorn.conf.py"
 
-  # Celery Worker
   celery_worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: *common-build
     container_name: async_blog_celery_worker
     restart: unless-stopped
-    env_file:
-      - .env
+    env_file: [.env]
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/async_blog
-      - REDIS_URL=redis://redis:6379/0
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672//
-      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
-    volumes:
-      - ./logs:/app/logs
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/async_blog
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    volumes: [./logs:/app/logs]
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - blog_network
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+    networks: [blog_network]
     command: celery -A app.tasks.worker worker --loglevel=info --concurrency=4
 
-  # Celery Beat (定时任务)
   celery_beat:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: *common-build
     container_name: async_blog_celery_beat
     restart: unless-stopped
-    env_file:
-      - .env
+    env_file: [.env]
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/async_blog
-      - REDIS_URL=redis://redis:6379/0
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672//
-      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
-    volumes:
-      - ./logs:/app/logs
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    volumes: [./logs:/app/logs]
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - blog_network
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+    networks: [blog_network]
     command: celery -A app.tasks.worker beat --loglevel=info
 
-  # Flower (Celery 监控)
   flower:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: *common-build
     container_name: async_blog_flower
     restart: unless-stopped
-    env_file:
-      - .env
+    env_file: [.env]
     environment:
-      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
-    ports:
-      - "5555:5555"
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    ports: ["5555:5555"]
     depends_on:
-      - rabbitmq
-      - redis
-    networks:
-      - blog_network
+      rabbitmq: {condition: service_started}
+      redis: {condition: service_healthy}
+    networks: [blog_network]
     command: celery -A app.tasks.worker flower --port=5555
 
-  # Nginx 反向代理
   nginx:
     image: nginx:alpine
     container_name: async_blog_nginx
@@ -192,29 +147,19 @@ services:
       - ./static:/usr/share/nginx/html/static:ro
       - ./uploads:/usr/share/nginx/html/uploads:ro
       - nginx_logs:/var/log/nginx
-    ports:
-      - "80:80"
-      - "443:443"
+    ports: ["80:80", "443:443"]
     depends_on:
-      web:
-        condition: service_healthy
-    networks:
-      - blog_network
+      web: {condition: service_healthy}
+    networks: [blog_network]
 
 networks:
   blog_network:
     driver: bridge
     ipam:
-      config:
-        - subnet: 172.20.0.0/16
+      config: [{subnet: 172.20.0.0/16}]
 
 volumes:
   postgres_data:
-    driver: local
   redis_data:
-    driver: local
   rabbitmq_data:
-    driver: local
   nginx_logs:
-    driver: local
-

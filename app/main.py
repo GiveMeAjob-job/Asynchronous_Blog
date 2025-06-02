@@ -15,9 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy import func, and_, or_
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
+
+
+
 
 from app.api.v1.dependencies import get_current_user
 from app.core.config import settings
@@ -43,10 +43,8 @@ app = FastAPI(
     redoc_url=f"{settings.API_V1_STR}/redoc",
 )
 
-# 设置限流器
-limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
 
 # 中间件配置
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -96,9 +94,9 @@ async def health_check():
     return {"status": "healthy", "timestamp": datetime.utcnow()}
 
 
+
 # 前端路由
 @app.get("/", response_class=HTMLResponse)
-@limiter.limit("30/minute")
 async def index(
         request: Request,
         page: int = Query(1, ge=1),
@@ -178,7 +176,6 @@ async def index(
 
 
 @app.get("/post/{slug}", response_class=HTMLResponse)
-@limiter.limit("60/minute")
 async def post_detail(
         request: Request,
         slug: str,
@@ -391,7 +388,6 @@ async def get_user_dashboard_stats(db: AsyncSession, user: User) -> dict:
 
 
 @app.get("/search", response_class=HTMLResponse)
-@limiter.limit("20/minute")
 async def search(
         request: Request,
         q: str = Query(None, min_length=1, max_length=100),

@@ -1,69 +1,41 @@
-# Dockerfile
-# 构建阶段
-FROM python:3.11-slim as builder
-
-# 设置工作目录
+FROM python:3.11-slim-bookworm AS builder
 WORKDIR /app
 
-# 安装系统依赖
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+# 1) 写全新的源文件（用 https）＋ 关闭 pipeline ＋ 重试
+RUN printf "deb https://deb.debian.org/debian          bookworm main\n\
+deb https://deb.debian.org/debian          bookworm-updates main\n\
+deb https://security.debian.org/debian-security bookworm-security main\n" \
+      > /etc/apt/sources.list \
+ && printf 'Acquire::http::Pipeline-Depth "0";\n\
+Acquire::https::Pipeline-Depth "0";\n\
+Acquire::Retries "5";\n' \
+      > /etc/apt/apt.conf.d/99fix-broken-cdn
 
-# 安装 Poetry
+# 2) 系统依赖
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends build-essential libpq-dev curl \
+ && rm -rf /var/lib/apt/lists/*
+
+# 3) Python 依赖
 RUN pip install --no-cache-dir poetry==1.6.1
-
-# 复制依赖文件
 COPY pyproject.toml poetry.lock ./
+RUN poetry export -f requirements.txt -o requirements.txt --without-hashes
 
-# 导出依赖到 requirements.txt
-RUN poetry export -f requirements.txt --output requirements.txt --without-hashes
-
-# 生产阶段
-FROM python:3.11-slim
-
-# 设置环境变量
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app \
-    PORT=8000
-
-# 创建应用用户
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-
-# 设置工作目录
+# ------------ 运行层 ------------
+FROM python:3.11-slim-bookworm AS runtime
 WORKDIR /app
 
-# 安装运行时依赖
-RUN apt-get update && apt-get install -y \
-    libpq5 \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# 用同样的 apt 配置（复制文件即可，也可再写一次，体积差不多）
+COPY --from=builder /etc/apt/sources.list /etc/apt/sources.list
+COPY --from=builder /etc/apt/apt.conf.d/99fix-broken-cdn /etc/apt/apt.conf.d/
 
-# 复制依赖文件
 COPY --from=builder /app/requirements.txt .
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libpq5 curl \
+ && rm -rf /var/lib/apt/lists/* \
+ && pip install --no-cache-dir -r requirements.txt \
+ && pip install --no-cache-dir gunicorn
 
-# 安装 Python 依赖
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir gunicorn
-
-# 复制应用代码
-COPY --chown=appuser:appuser . .
-
-# 创建必要的目录
-RUN mkdir -p /app/logs /app/uploads /app/static && \
-    chown -R appuser:appuser /app
-
-# 切换到非 root 用户
-USER appuser
-
-# 暴露端口
+COPY . .
 EXPOSE 8000
-
-# 健康检查
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
-
-# 启动命令
 CMD ["gunicorn", "app.main:app", "-c", "gunicorn.conf.py"]
