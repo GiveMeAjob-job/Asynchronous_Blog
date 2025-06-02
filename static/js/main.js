@@ -14,7 +14,7 @@ function checkAuthStatus() {
             }).join(''));
 
             const payload = JSON.parse(jsonPayload);
-            document.getElementById('username').textContent = payload.username || '用户';
+document.getElementById('navUsername').textContent = payload.username || '用户'; // 使用新的 ID
         } catch (e) {
             console.error('解析token失败', e);
         }
