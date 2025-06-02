@@ -20,7 +20,8 @@ document.addEventListener('DOMContentLoaded', function() {
             commentError.classList.add('d-none');
 
             try {
-                const response = await axios.post(`/api/v1/posts/${postId}/comments`, {
+                // 使用相对路径以配合默认 baseURL
+                const response = await axios.post(`/posts/${postId}/comments`, {
                     content: content,
                     post_id: postId
                 });
@@ -70,7 +71,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const loadRelatedPosts = async () => {
             try {
                 const postSlug = window.location.pathname.split('/').pop();
-                const response = await axios.get(`/api/v1/posts/${postSlug}/related`);
+                // 仍然使用相对路径以配合 baseURL
+                const response = await axios.get(`/posts/${postSlug}/related`);
 
                 const relatedPosts = response.data;
                 if (relatedPosts.length === 0) {
