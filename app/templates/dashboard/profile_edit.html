@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}编辑个人资料 - {{ current_user.username }}{% endblock %}
+
+{% block content %}
+<div class="container mt-section">
+    <header class="page-header text-center mb-4">
+        <h1 class="section-title">编辑个人资料</h1>
+    </header>
+
+    <div class="content-panel">
+        <div id="profile-update-error" class="form-message error d-none mb-3"></div>
+        <div id="profile-update-success" class="form-message success d-none mb-3"></div>
+
+        <form id="profile-edit-form">
+            <div class="mb-3">
+                <label for="editUsername" class="form-label">用户名</label>
+                <input type="text" class="form-control" id="editUsername" value="{{ current_user.username }}" required>
+                <div class="form-text small text-muted mt-1">用户名只能包含字母、数字和下划线。</div>
+            </div>
+            <div class="mb-3">
+                <label for="editEmail" class="form-label">邮箱</label>
+                <input type="email" class="form-control" id="editEmail" value="{{ current_user.email }}" required>
+            </div>
+            <hr class="my-4">
+            <h5 class="mb-3">更改密码 (可选)</h5>
+            <div class="mb-3">
+                <label for="editPassword" class="form-label">新密码</label>
+                <input type="password" class="form-control" id="editPassword" placeholder="留空则不更改密码">
+                <div class="form-text small text-muted mt-1">密码至少8个字符，包含大小写字母和数字。</div>
+            </div>
+            <div class="mb-3">
+                <label for="editConfirmPassword" class="form-label">确认新密码</label>
+                <input type="password" class="form-control" id="editConfirmPassword" placeholder="再次输入新密码">
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 mt-4">
+                <a href="{{ url_for('user_profile_page') }}" class="btn btn-outline-light">取消</a>
+                <button type="submit" class="btn btn-primary">保存更改</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const profileEditForm = document.getElementById('profile-edit-form');
+    const errorDiv = document.getElementById('profile-update-error');
+    const successDiv = document.getElementById('profile-update-success');
+
+    if (profileEditForm) {
+        profileEditForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            if(errorDiv) errorDiv.classList.add('d-none');
+            if(successDiv) successDiv.classList.add('d-none');
+
+            const username = document.getElementById('editUsername').value;
+            const email = document.getElementById('editEmail').value;
+            const password = document.getElementById('editPassword').value;
+            const confirmPassword = document.getElementById('editConfirmPassword').value;
+
+            let payload = {
+                username: username,
+                email: email
+            };
+
+            if (password) {
+                if (password !== confirmPassword) {
+                    if(errorDiv) {
+                        errorDiv.textContent = '两次输入的新密码不一致。';
+                        errorDiv.classList.remove('d-none');
+                    }
+                    return;
+                }
+                payload.password = password;
+            }
+
+            try {
+                const response = await axios.put('/api/v1/users/me', payload);
+                if(successDiv) {
+                    successDiv.textContent = '个人资料更新成功！';
+                    successDiv.classList.remove('d-none');
+                }
+                // Optionally, update username in navbar if it changed
+                const navUsernameElement = document.getElementById('navUsername');
+                if (navUsernameElement && response.data.username) {
+                    navUsernameElement.textContent = response.data.username;
+                }
+                 // Redirect or give further feedback
+                setTimeout(() => {
+                    window.location.href = "{{ url_for('user_profile_page') }}";
+                }, 1500);
+
+            } catch (error) {
+                console.error('更新资料失败:', error);
+                if(errorDiv) {
+                    let errorMessage = '更新资料失败，请稍后再试。';
+                    if (error.response && error.response.data && error.response.data.detail) {
+                        if (Array.isArray(error.response.data.detail)) {
+                            errorMessage = error.response.data.detail.map(err => `${err.loc.join('.')} - ${err.msg}`).join('; ');
+                        } else {
+                            errorMessage = error.response.data.detail;
+                        }
+                    }
+                    errorDiv.textContent = errorMessage;
+                    errorDiv.classList.remove('d-none');
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
