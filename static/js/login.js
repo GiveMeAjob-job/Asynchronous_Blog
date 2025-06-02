@@ -13,7 +13,8 @@ document.addEventListener('DOMContentLoaded', function() {
         loginError.classList.add('d-none');
 
         try {
-            const response = await axios.post('auth/login',
+            // 使用绝对路径以便与默认 baseURL 拼接
+            const response = await axios.post('/auth/login',
                 new URLSearchParams({
                     'username': email,  // API接收username参数，但我们使用email
                     'password': password

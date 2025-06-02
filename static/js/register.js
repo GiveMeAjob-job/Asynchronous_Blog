@@ -31,9 +31,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 username: username,
                 email: email,
                 password: password,
-                is_active: true,      // 添加
-    is_superuser: false   // 添加
-            }, { baseURL: '' }); // 临时禁用 baseURL
+                is_active: true,
+                is_superuser: false
+            });
 
 
             // 注册成功，重定向到登录页
