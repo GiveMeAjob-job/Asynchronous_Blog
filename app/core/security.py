@@ -4,6 +4,17 @@ from jose import jwt
 from passlib.context import CryptContext
 from .config import settings
 
+# Workaround for passlib 1.7 with bcrypt>=4.0
+try:
+    import bcrypt
+
+    if not hasattr(bcrypt, "__about__"):
+        # passlib expects bcrypt.__about__.__version__
+        version = getattr(bcrypt, "__version__", "0")
+        bcrypt.__about__ = type("about", (), {"__version__": version})
+except Exception:  # pragma: no cover - bcrypt may not be installed in tests
+    bcrypt = None
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
