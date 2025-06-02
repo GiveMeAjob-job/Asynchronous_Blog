@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}个人资料 - {{ current_user.username }}{% endblock %}
+
+{% block content %}
+<div class="container mt-section">
+    <header class="page-header text-center mb-4">
+        <h1 class="section-title">个人资料</h1>
+    </header>
+
+    <div class="content-panel"> {# 或者使用 .sidebar-card 样式 #}
+        <p><strong>用户名:</strong> {{ current_user.username }}</p>
+        <p><strong>邮箱:</strong> {{ current_user.email }}</p>
+        <p><strong>注册日期:</strong> {{ current_user.created_at.strftime('%Y-%m-%d %H:%M') if current_user.created_at else 'N/A' }}</p>
+        {# 您可以在这里添加更多信息或一个编辑个人资料的表单 #}
+        {# 例如: <a href="/dashboard/profile/edit" class="btn btn-primary mt-3">编辑资料</a> #}
+    </div>
+</div>
+{% endblock %}

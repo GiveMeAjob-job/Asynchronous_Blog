@@ -198,7 +198,104 @@ async def get_current_user_optional(request: Request, db: AsyncSession = Depends
         return None
 
 
-# --- 页面路由 ---
+async def update_post_views(db: AsyncSession, post: Post):
+    """异步更新文章阅读量"""
+    post.views = (post.views or 0) + 1
+    # 不需要单独 commit，依赖 get_db 的 commit
+    await db.merge(post)  # 使用 merge 以确保 post 在 session 中
+    # 注意：如果 get_db 在异常时 rollback，这个浏览量可能不会保存。
+    # 对于浏览量这种非关键数据，可以考虑更独立的更新机制，或者接受它在某些错误情况下可能不保存。
+
+
+async def get_sidebar_data(db: AsyncSession) -> dict:
+    """获取侧边栏数据"""
+    try:
+        # 分类查询 - 使用 selectinload 预加载关系
+        cat_query = select(Category, func.count(Post.id).label('post_count')) \
+            .outerjoin(Post, and_(Category.id == Post.category_id, Post.published == True)) \
+            .group_by(Category.id)
+        cat_result = await db.execute(cat_query)
+        categories = cat_result.all()
+
+        # 标签查询
+        tag_query = select(Tag).order_by(Tag.name).limit(30)
+        tag_result = await db.execute(tag_query)
+        tags = tag_result.scalars().all()
+
+        # 热门文章查询 - 预加载关系
+        popular_query = select(Post).options(
+            selectinload(Post.author),
+            selectinload(Post.category),
+            selectinload(Post.tags)
+        ).where(Post.published == True) \
+            .order_by(Post.views.desc()) \
+            .limit(5)
+        popular_result = await db.execute(popular_query)
+        popular_posts = popular_result.scalars().all()
+
+        # 确保关系已加载
+        for post in popular_posts:
+            _ = post.author
+            _ = post.category
+            _ = post.tags
+
+        return {
+            "categories": categories,
+            "tags": tags,
+            "popular_posts": popular_posts
+        }
+    except Exception as e:
+        logger.error(f"Error fetching sidebar data: {e}")
+        return {"categories": [], "tags": [], "popular_posts": []}
+
+
+async def get_related_posts(db: AsyncSession, post: Post, limit: int = 5):
+    """获取相关文章"""
+    try:
+        tag_ids = [tag.id for tag in post.tags] if post.tags else []
+
+        query = select(Post).options(
+            selectinload(Post.author),
+            selectinload(Post.category),
+            selectinload(Post.tags)
+        ).where(
+            and_(
+                Post.id != post.id,
+                Post.published == True
+            )
+        )
+
+        # 如果有标签或分类，添加相关性筛选
+        if tag_ids or post.category_id:
+            if tag_ids and post.category_id:
+                query = query.where(
+                    or_(
+                        Post.category_id == post.category_id,
+                        Post.tags.any(Tag.id.in_(tag_ids))
+                    )
+                )
+            elif post.category_id:
+                query = query.where(Post.category_id == post.category_id)
+            elif tag_ids:
+                query = query.where(Post.tags.any(Tag.id.in_(tag_ids)))
+
+        query = query.order_by(Post.created_at.desc()).limit(limit)
+        result = await db.execute(query)
+        posts = result.scalars().all()
+
+        # 确保关系已加载
+        for related_post in posts:
+            _ = related_post.author
+            _ = related_post.category
+            _ = related_post.tags
+
+        return posts
+    except Exception as e:
+        logger.error(f"Error fetching related posts: {e}")
+        return []
+
+
+# 在 index 函数中的修改部分
 @app.get("/", response_class=HTMLResponse)
 async def index(
         request: Request,
@@ -208,15 +305,16 @@ async def index(
         category_id: Optional[int] = None,
         tag_name: Optional[str] = None,
         db: AsyncSession = Depends(get_db),
-        current_user: Optional[User] = Depends(get_current_user_optional)  # 使用可选认证
+        current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """首页 - 支持分页、排序和筛选"""
-    posts_data = []  # 初始化以防查询失败
+    posts_data = []
     total = 0
     total_pages = 0
-    sidebar_data = {"categories": [], "tags": [], "popular_posts": []}  # 默认值
+    sidebar_data = {"categories": [], "tags": [], "popular_posts": []}
 
     try:
+        # 构建查询 - 预加载关系
         query = select(Post).options(
             selectinload(Post.author),
             selectinload(Post.category),
@@ -235,7 +333,23 @@ async def index(
         }
         query = query.order_by(order_mapping[sort])
 
-        count_query = select(func.count()).select_from(query.correlate(None).subquery())  # 确保子查询正确
+        # 计算总数
+        count_query = select(func.count()).select_from(
+            select(Post).where(Post.published == True).subquery()
+        )
+        if category_id:
+            count_query = select(func.count()).select_from(
+                select(Post).where(
+                    and_(Post.published == True, Post.category_id == category_id)
+                ).subquery()
+            )
+        if tag_name:
+            count_query = select(func.count()).select_from(
+                select(Post).join(post_tag).join(Tag).where(
+                    and_(Post.published == True, Tag.name == tag_name)
+                ).subquery()
+            )
+
         total_result = await db.execute(count_query)
         total = total_result.scalar_one_or_none() or 0
 
@@ -246,11 +360,16 @@ async def index(
             posts_data = result.scalars().all()
             total_pages = math.ceil(total / per_page)
 
+            # 确保关系已加载
+            for post in posts_data:
+                _ = post.author
+                _ = post.category
+                _ = post.tags
+
         sidebar_data = await get_sidebar_data(db)
 
     except Exception as e:
         logger.error(f"Error in index page data fetching: {str(e)}")
-        # 根据情况，可以决定是否抛出 HTTPException 或显示一个错误友好的页面/消息
 
     return templates.TemplateResponse(
         "index.html",
@@ -276,15 +395,17 @@ async def index(
     )
 
 
+# 在 post_detail 函数中的修改
 @app.get("/post/{slug}", response_class=HTMLResponse)
 async def post_detail(
         request: Request,
         slug: str,
         db: AsyncSession = Depends(get_db),
-        current_user: Optional[User] = Depends(get_current_user_optional)  # 可选认证，用于显示用户信息等
+        current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """文章详情页"""
     try:
+        # 预加载所有关系
         query = select(Post).options(
             selectinload(Post.comments).selectinload(Comment.author),
             selectinload(Post.tags),
@@ -301,6 +422,12 @@ async def post_detail(
                 {"request": request, "current_year": datetime.now().year, "current_user": current_user},
                 status_code=404
             )
+
+        # 确保关系已加载
+        _ = post.author
+        _ = post.category
+        _ = post.tags
+        _ = post.comments
 
         await update_post_views(db, post)
         related_posts = await get_related_posts(db, post)
@@ -321,62 +448,6 @@ async def post_detail(
     except Exception as e:
         logger.error(f"Error in post detail for slug {slug}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
-
-
-async def get_sidebar_data(db: AsyncSession) -> dict:
-    """获取侧边栏数据"""
-    try:
-        cat_query = select(Category, func.count(Post.id).label('post_count')) \
-            .outerjoin(Post, and_(Category.id == Post.category_id, Post.published == True)) \
-            .group_by(Category.id)
-        cat_result = await db.execute(cat_query)
-        categories = cat_result.all()
-
-        tag_query = select(Tag).order_by(Tag.name).limit(30)  # 增加限制并排序
-        tag_result = await db.execute(tag_query)
-        tags = tag_result.scalars().all()
-
-        popular_query = select(Post) \
-            .where(Post.published == True) \
-            .order_by(Post.views.desc()) \
-            .limit(5)
-        popular_result = await db.execute(popular_query)
-        popular_posts = popular_result.scalars().all()
-
-        return {
-            "categories": categories,
-            "tags": tags,
-            "popular_posts": popular_posts
-        }
-    except Exception as e:
-        logger.error(f"Error fetching sidebar data: {e}")
-        return {"categories": [], "tags": [], "popular_posts": []}  # 返回空数据以避免模板渲染错误
-
-
-async def update_post_views(db: AsyncSession, post: Post):
-    """异步更新文章阅读量"""
-    post.views = (post.views or 0) + 1
-    # 不需要单独 commit，依赖 get_db 的 commit
-    await db.merge(post)  # 使用 merge 以确保 post 在 session 中
-    # 注意：如果 get_db 在异常时 rollback，这个浏览量可能不会保存。
-    # 对于浏览量这种非关键数据，可以考虑更独立的更新机制，或者接受它在某些错误情况下可能不保存。
-
-
-async def get_related_posts(db: AsyncSession, post: Post, limit: int = 5):
-    # ... (您的原有逻辑) ...
-    tag_ids = [tag.id for tag in post.tags]
-    query = select(Post).where(
-        and_(
-            Post.id != post.id,
-            Post.published == True,
-            or_(
-                Post.category_id == post.category_id,
-                Post.tags.any(Tag.id.in_(tag_ids)) if tag_ids else False
-            )
-        )
-    ).order_by(func.random()).limit(limit)  # func.random() 可能在所有DB上不通用或性能不佳
-    result = await db.execute(query)
-    return result.scalars().all()
 
 
 async def get_post_stats(db: AsyncSession, post: Post) -> dict:
@@ -634,3 +705,65 @@ async def generic_exception_handler(request: Request, exc: Exception):
 # 确保这个文件中的所有路由、函数和导入都是您期望的最终版本。
 # 移除了重复的 /dashboard/posts 和 /dashboard/posts/new 路由定义
 # 移除了 my_posts_alias 路由，因为模板路径应直接在 my_posts 中指定正确
+
+@app.get("/dashboard/posts/edit/{post_id}", response_class=HTMLResponse)
+async def edit_post_page(
+    request: Request,
+    post_id: int,
+    current_user: User = Depends(get_dashboard_user), # 认证
+    db: AsyncSession = Depends(get_db) # 获取数据库会话
+):
+    if isinstance(current_user, RedirectResponse): # 处理 get_dashboard_user 可能返回的重定向
+        return current_user
+
+    post_to_edit = await db.get(Post, post_id)
+
+    if not post_to_edit:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文章未找到")
+
+    # 权限检查：确保当前用户是文章作者或管理员
+    if post_to_edit.author_id != current_user.id and not current_user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="没有权限编辑此文章")
+
+    # 获取分类和标签数据，用于表单中的下拉选择或参考
+    categories_result = await db.execute(select(Category))
+    tags_result = await db.execute(select(Tag))
+    categories_data = categories_result.scalars().all()
+    tags_data = tags_result.scalars().all()
+
+    current_post_tag_names = [tag.name for tag in post_to_edit.tags] # 获取当前文章的标签名称列表
+
+    return templates.TemplateResponse(
+        "posts/edit.html", # 您需要创建这个模板文件
+        {
+            "request": request,
+            "post": post_to_edit,
+            "categories": categories_data,
+            "tags": tags_data, # 所有可用标签
+            "current_post_tags_str": ",".join(current_post_tag_names), # 将当前标签转为逗号分隔字符串给表单
+            "current_user": current_user,
+            "current_year": datetime.now().year
+        }
+    )
+
+# 在 app/main.py 文件中
+
+# ... (其他 imports 和 get_dashboard_user 函数定义) ...
+
+@app.get("/dashboard/profile", response_class=HTMLResponse)
+async def user_profile_page(
+    request: Request,
+    current_user: User = Depends(get_dashboard_user) # 认证
+):
+    if isinstance(current_user, RedirectResponse): # 处理 get_dashboard_user 可能返回的重定向
+        return current_user
+
+    return templates.TemplateResponse(
+        "dashboard/profile.html", # 您需要创建这个模板文件
+        {
+            "request": request,
+            "current_user": current_user, # 将当前用户信息传递给模板
+            "current_year": datetime.now().year
+            # 您可以根据需要传递更多用户相关的统计信息或数据
+        }
+    )

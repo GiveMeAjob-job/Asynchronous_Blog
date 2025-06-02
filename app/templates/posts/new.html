@@ -3,88 +3,88 @@
 {% block title %}创建新文章 - Async Blog{% endblock %}
 
 {% block content %}
-<div class="row">
+<div class="row mt-section"> {# 保留 Bootstrap 栅格用于整体布局，如果 Bootstrap CSS 被完全移除，这需要自定义 #}
     <div class="col-md-3">
-        <div class="list-group">
-            <a href="/dashboard" class="list-group-item list-group-item-action">
+        <nav class="dashboard-nav sidebar-card p-0">
+            <a href="{{ url_for('dashboard') }}" class="dashboard-nav-link">
                 仪表盘总览
             </a>
-            <a href="/dashboard/posts" class="list-group-item list-group-item-action">
+            <a href="{{ url_for('my_posts') }}" class="dashboard-nav-link">
                 我的文章
             </a>
-            <a href="/dashboard/posts/new" class="list-group-item list-group-item-action active">
+            <a href="{{ url_for('new_post_page') }}" class="dashboard-nav-link active">
                 发布新文章
             </a>
-            <a href="/dashboard/profile" class="list-group-item list-group-item-action">
+            <a href="{{ url_for('user_profile_page') }}" class="dashboard-nav-link"> {# 假设个人资料页路由名为 user_profile_page #}
                 个人资料
             </a>
-        </div>
+        </nav>
     </div>
     <div class="col-md-9">
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">创建新文章</h3>
-            </div>
-            <div class="card-body">
-                <form id="new-post-form">
-                    <div class="mb-3">
-                        <label for="title" class="form-label">标题</label>
-                        <input type="text" class="form-control" id="title" required>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="slug" class="form-label">URL别名（可选）</label>
-                        <input type="text" class="form-control" id="slug" 
-                               placeholder="将根据标题自动生成">
-                        <div class="form-text">用于文章URL，只能包含字母、数字和横线</div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="category" class="form-label">分类</label>
-                        <select class="form-select" id="category">
-                            <option value="">选择分类...</option>
-                            {% for category in categories %}
-                            <option value="{{ category.id }}">{{ category.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="tags" class="form-label">标签</label>
-                        <input type="text" class="form-control" id="tags" 
-                               placeholder="输入标签，用逗号分隔">
-                        <div class="form-text">可用标签：
-                            {% for tag in tags %}
-                                <span class="badge bg-secondary">{{ tag.name }}</span>
+        <section class="content-panel">
+            <h3 class="section-title mb-4 text-start">创建新文章</h3> {# text-start 确保标题左对齐 #}
+
+            <form id="new-post-form">
+                <div class="mb-3">
+                    <label for="title" class="form-label">标题</label>
+                    <input type="text" class="form-control" id="title" required>
+                </div>
+
+                <div class="mb-3">
+                    <label for="slug" class="form-label">URL别名 (可选)</label>
+                    <input type="text" class="form-control" id="slug"
+                           placeholder="将根据标题自动生成">
+                    <div class="form-text small text-muted mt-1">用于文章URL，只能包含字母、数字和横线</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="category" class="form-label">分类</label>
+                    <select class="form-select" id="category">
+                        <option value="">选择分类...</option>
+                        {% for category_item in categories %} {# 避免与可能的外部 category 变量冲突 #}
+                        <option value="{{ category_item.id }}">{{ category_item.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="tags-input" class="form-label">标签 (用逗号分隔)</label> {# 修改 ID 避免与下方迭代变量冲突 #}
+                    <input type="text" class="form-control" id="tags-input"
+                           placeholder="输入标签，用逗号分隔">
+                    {% if tags %}
+                    <div class="form-text small text-muted mt-2">可用标签参考：
+                        <div class="tag-cloud mt-1">
+                            {% for tag_item in tags %} {# 避免与可能的外部 tag 变量冲突 #}
+                                <span class="tag small">{{ tag_item.name }}</span>
                             {% endfor %}
                         </div>
                     </div>
-                    
-                    <div class="mb-3">
-                        <label for="content" class="form-label">内容</label>
-                        <textarea class="form-control" id="content" rows="15" required
-                                  placeholder="支持Markdown格式"></textarea>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="published">
-                            <label class="form-check-label" for="published">
-                                立即发布
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <div class="d-grid gap-2 d-md-block">
-                        <button type="submit" class="btn btn-primary">保存文章</button>
-                        <a href="/dashboard/posts" class="btn btn-secondary">取消</a>
-                    </div>
-                    
-                    <div id="post-error" class="alert alert-danger mt-3 d-none"></div>
-                    <div id="post-success" class="alert alert-success mt-3 d-none"></div>
-                </form>
-            </div>
-        </div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="content" class="form-label">内容 (支持Markdown)</label>
+                    <textarea class="form-control" id="content" rows="15" required
+                              placeholder="支持Markdown格式"></textarea>
+                </div>
+
+                <div class="mb-3 form-check">
+                    <input class="form-check-input" type="checkbox" id="published" checked> {# 默认勾选发布 #}
+                    <label class="form-check-label" for="published">
+                        立即发布
+                    </label>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4"> {# Bootstrap flex 工具类，如果移除 Bootstrap CSS，需自定义 #}
+                    <a href="{{ url_for('my_posts') }}" class="btn btn-outline-light">取消</a> {# 使用新CSS的按钮样式 #}
+                    <button type="submit" class="btn btn-primary">保存文章</button>
+                </div>
+
+                {# 使用新的 form-message 样式 #}
+                <div id="post-error" class="form-message error mt-3 d-none"></div>
+                <div id="post-success" class="form-message success mt-3 d-none"></div>
+            </form>
+        </section>
     </div>
 </div>
 {% endblock %}
@@ -95,48 +95,68 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('new-post-form');
     const errorDiv = document.getElementById('post-error');
     const successDiv = document.getElementById('post-success');
-    
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        errorDiv.classList.add('d-none');
-        successDiv.classList.add('d-none');
-        
-        const data = {
-            title: document.getElementById('title').value,
-            slug: document.getElementById('slug').value || undefined,
-            content: document.getElementById('content').value,
-            category_id: parseInt(document.getElementById('category').value) || null,
-            published: document.getElementById('published').checked,
-            tags: document.getElementById('tags').value.split(',').map(t => t.trim()).filter(t => t)
-        };
-        
-        try {
-            const response = await axios.post('/posts', data);
-            successDiv.textContent = '文章创建成功！';
-            successDiv.classList.remove('d-none');
-            
-            // 3秒后跳转到文章列表
-            setTimeout(() => {
-                window.location.href = '/dashboard/posts';
-            }, 3000);
-        } catch (error) {
-            console.error('创建文章失败', error);
-            errorDiv.textContent = error.response?.data?.detail || '创建文章失败，请稍后再试';
-            errorDiv.classList.remove('d-none');
-        }
-    });
-    
+
+    if (form) { // 确保表单存在
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            if(errorDiv) errorDiv.classList.add('d-none');
+            if(successDiv) successDiv.classList.add('d-none');
+
+            const data = {
+                title: document.getElementById('title').value,
+                slug: document.getElementById('slug').value.trim() || undefined, // 空字符串时传 undefined
+                content: document.getElementById('content').value,
+                category_id: parseInt(document.getElementById('category').value) || null,
+                published: document.getElementById('published').checked,
+                tags: document.getElementById('tags-input').value.split(',').map(t => t.trim()).filter(t => t) // 使用 tags-input
+            };
+
+            try {
+                // axios.defaults.baseURL 在 main.js 中已设置为 /api/v1
+                const response = await axios.post('/posts', data); // 实际请求 /api/v1/posts
+                if(successDiv) {
+                    successDiv.textContent = '文章创建成功！将跳转到文章列表...';
+                    successDiv.classList.remove('d-none');
+                }
+
+                setTimeout(() => {
+                    // 对于需要认证的页面跳转，确保后端能通过 cookie 或 header 处理认证
+                    window.location.href = "{{ url_for('my_posts') }}";
+                }, 2000); // 缩短跳转时间
+            } catch (error) {
+                console.error('创建文章失败:', error);
+                if(errorDiv) {
+                    let errorMessage = '创建文章失败，请稍后再试';
+                    if (error.response && error.response.data && error.response.data.detail) {
+                         if (Array.isArray(error.response.data.detail)) {
+                            errorMessage = error.response.data.detail.map(err => `${err.loc.join('.')} - ${err.msg}`).join('; ');
+                        } else {
+                            errorMessage = error.response.data.detail;
+                        }
+                    }
+                    errorDiv.textContent = errorMessage;
+                    errorDiv.classList.remove('d-none');
+                }
+            }
+        });
+    }
+
     // 自动生成slug
-    document.getElementById('title').addEventListener('blur', function() {
-        const slugInput = document.getElementById('slug');
-        if (!slugInput.value) {
-            slugInput.value = this.value.toLowerCase()
-                .replace(/[^a-z0-9\u4e00-\u9fa5]/g, '-')
-                .replace(/-+/g, '-')
-                .replace(/^-|-$/g, '');
-        }
-    });
+    const titleInput = document.getElementById('title');
+    const slugInput = document.getElementById('slug');
+    if (titleInput && slugInput) {
+        titleInput.addEventListener('input', function() { // 改为 input 事件实时更新，如果希望
+            // 仅当 slug 为空时自动填充，避免覆盖用户输入
+            if (!slugInput.value.trim() || slugInput.placeholder === "将根据标题自动生成") {
+                slugInput.value = this.value.toLowerCase()
+                    .replace(/\s+/g, '-') // 替换空格为连字符
+                    .replace(/[^a-z0-9\u4e00-\u9fa5-]/g, '') // 移除除非法字符（保留中文、字母、数字、连字符）
+                    .replace(/-+/g, '-') // 替换多个连字符为单个
+                    .replace(/^-|-$/g, ''); // 移除开头和结尾的连字符
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

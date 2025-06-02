@@ -67,28 +67,24 @@
                         {% for post in recent_posts %}
                         <tr>
                             <td>
-                                <a href="{{ url_for('post_detail', slug=post.slug) if post.published else '#' }}" class="text-primary">
+                                <a href="{{ url_for('post_detail', slug=post.slug) if post.published else '#' }}" class="text-primary"> {# 假设链接和样式已根据新主题调整 #}
                                     {{ post.title }}
                                 </a>
                             </td>
                             <td>
-                                {# 5. 徽章: 移除 .badge, .bg-success, .bg-secondary #}
-                                {# 应用新CSS的 .status-badge 或类似的类, 例如 .status-published, .status-draft #}
                                 {% if post.published %}
-                                <span class="status-badge status-published">已发布</span>
+                                <span class="status-badge status-published">已发布</span> {# 假设使用了新的状态徽章样式 #}
                                 {% else %}
                                 <span class="status-badge status-draft">草稿</span>
                                 {% endif %}
                             </td>
                             <td>{{ post.created_at.strftime('%Y-%m-%d') }}</td>
                             <td>
-                                {# 6. 按钮: 移除 .btn-sm, .btn-primary, .btn-danger #}
-                                {# 应用新CSS的 .btn, .btn-outline (或其他自定义按钮类) #}
-                                <a href="/dashboard/posts/edit/{{ post.id }}" class="btn btn-outline btn-sm">编辑</a>
+                                <a href="/dashboard/posts/edit/{{ post.id }}" class="btn btn-outline btn-sm">编辑</a> {# 假设使用了新的按钮样式 #}
                                 <button class="btn btn-danger-outline btn-sm delete-post" data-id="{{ post.id }}">删除</button>
                             </td>
                         </tr>
-                        {% empty %}
+                        {% else %} {# <--- 确保这里是 {% else %} 而不是 {% empty %} #}
                         <tr>
                             <td colspan="4" class="text-center text-muted py-4">暂无最近文章</td>
                         </tr>

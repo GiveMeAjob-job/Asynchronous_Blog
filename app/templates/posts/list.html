@@ -62,9 +62,9 @@
                                 <td>{{ post.views or 0 }}</td>
                                 <td>
                                     <div class="btn-group btn-group-sm" role="group">
-                                        <a href="/dashboard/posts/edit/{{ post.id }}" 
+                                        <a href="/dashboard/posts/edit/{{ post.id }}"
                                            class="btn btn-outline-primary">编辑</a>
-                                        <button class="btn btn-outline-danger delete-post" 
+                                        <button class="btn btn-outline-danger delete-post"
                                                 data-id="{{ post.id }}"
                                                 data-title="{{ post.title }}">删除</button>
                                     </div>
@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', function() {
         button.addEventListener('click', async function() {
             const postId = this.getAttribute('data-id');
             const postTitle = this.getAttribute('data-title');
-            
+
             if (confirm(`确定要删除文章《${postTitle}》吗？此操作不可恢复。`)) {
                 try {
                     await axios.delete(`/posts/${postId}`);
