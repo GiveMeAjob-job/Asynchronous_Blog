@@ -3,8 +3,8 @@
 {% block title %}{{ post.title }} - Async Blog{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', path='/css/prism.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', path='/css/markdown.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/prism.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/markdown.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -100,7 +100,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', path='/js/prism.js') }}"></script>
-<script src="{{ url_for('static', path='/js/post.js') }}"></script>
+<script src="{{ url_for('static', path='js/prism.js') }}"></script>
+<script src="{{ url_for('static', path='js/post.js') }}"></script>
 {% endblock %}
 
