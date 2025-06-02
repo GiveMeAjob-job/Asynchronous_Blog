@@ -1,8 +1,18 @@
 /* 基本样式 */
+:root {
+    --color-dark: #212529;
+    --color-light-bg: #f8f9fa;
+    --color-text-primary: #343a40;
+    --color-text-secondary: #6c757d;
+    --font-heading: 'Montserrat', sans-serif;
+    --font-body: 'Open Sans', sans-serif;
+}
+
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     line-height: 1.6;
-    color: #333;
+    background-color: #f8f9fa; /* Or a similar light shade */
+    font-family: 'YourChosenBodyFont', sans-serif;
+    color: #333; /* Adjust as needed, maybe a darker gray */
 }
 
 .blog-post {
@@ -31,4 +41,47 @@ body {
 /* 标签云样式 */
 .badge {
     margin: 3px;
+}
+
+h1, h2, h3 { /* Or specific classes for titles */
+    font-family: 'YourChosenHeadingFont', sans-serif;
+    font-weight: bold; /* Or specific weight */
+    color: #212529; /* Dark charcoal */
+}
+.post-title-main { /* Example for a large title like "Devcliorments" */
+    font-size: 2.5rem; /* Adjust as needed */
+    margin-bottom: 1rem;
+}
+
+.navbar {
+    background-color: #212529 !important; /* Dark charcoal */
+    padding: 1rem 0; /* Adjust padding */
+}
+.navbar .navbar-brand, .navbar .nav-link {
+    color: #f8f9fa !important; /* Light text color */
+    text-transform: uppercase; /* Optional, as in image */
+    font-size: 0.9rem; /* Adjust */
+}
+.navbar .nav-link:hover {
+    color: #adb5bd !important; /* Lighter gray on hover */
+}
+
+.btn-custom-dark {
+    background-color: #212529; /* Dark charcoal */
+    color: #f8f9fa;
+    border: 1px solid #212529;
+    padding: 0.75rem 1.5rem;
+    text-transform: uppercase;
+    font-weight: bold;
+    letter-spacing: 0.05em;
+    border-radius: 0; /* Sharp corners */
+    text-decoration: none;
+}
+.btn-custom-dark:hover {
+    background-color: #343a40;
+    color: #f8f9fa;
+}
+
+img.desaturated-style {
+    filter: grayscale(50%) sepia(20%); /* Adjust values to taste */
 }
