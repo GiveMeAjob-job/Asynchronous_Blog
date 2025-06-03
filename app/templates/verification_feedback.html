@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}邮箱验证结果 - Async Blog{% endblock %}
+
+{% block content %}
+<div class="container mt-section text-center">
+    <div class="content-panel" style="padding: var(--spacing-xl);">
+        {% if success %}
+        <h1 class="section-title mb-3">邮箱验证成功！</h1>
+        <p class="lead text-secondary">感谢您的确认，您现在可以登录并享受完整功能。</p>
+        {% else %}
+        <h1 class="section-title mb-3">邮箱验证失败</h1>
+        <p class="lead text-secondary">链接无效或已过期，请重新注册或请求新的验证链接。</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
