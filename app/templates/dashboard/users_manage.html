@@ -18,8 +18,19 @@
     <div class="col-md-9">
         <section class="content-panel">
             <h3 class="section-title mb-4">用户管理</h3>
-            <!-- TODO: 用户管理功能 -->
+            <table class="table">
+                <thead>
+                    <tr><th>ID</th><th>用户名</th><th>邮箱</th><th>激活</th></tr>
+                </thead>
+                <tbody id="users-body"></tbody>
+            </table>
+
         </section>
     </div>
 </div>
 {% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', path='js/admin_users.js') }}"></script>
+{% endblock %}
+

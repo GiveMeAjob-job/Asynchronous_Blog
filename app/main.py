@@ -933,6 +933,7 @@ async def dashboard_users_page(
     )
 
 
+
 @app.get("/dashboard/profile/edit", response_class=HTMLResponse)
 async def edit_user_profile_page(
         request: Request,
@@ -949,3 +950,4 @@ async def edit_user_profile_page(
             "current_year": datetime.now().year
         }
     )
+

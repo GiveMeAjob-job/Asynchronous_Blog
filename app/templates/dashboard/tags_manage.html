@@ -18,8 +18,31 @@
     <div class="col-md-9">
         <section class="content-panel">
             <h3 class="section-title mb-4">标签管理</h3>
-            <!-- TODO: 标签管理功能 -->
+            <form id="tag-form" class="mb-4">
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <input type="text" name="name" class="form-control" placeholder="标签名" required>
+                    </div>
+                    <div class="col-md-6">
+                        <input type="text" name="description" class="form-control" placeholder="描述">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">添加</button>
+                    </div>
+                </div>
+            </form>
+            <table class="table">
+                <thead>
+                    <tr><th>名称</th><th>描述</th></tr>
+                </thead>
+                <tbody id="tags-body"></tbody>
+            </table>
+
         </section>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', path='js/admin_tags.js') }}"></script>
 {% endblock %}

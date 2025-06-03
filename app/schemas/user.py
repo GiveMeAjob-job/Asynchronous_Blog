@@ -95,15 +95,11 @@ class TokenPayload(BaseModel):
     sub: Optional[int] = None
 
 
-class EmailRequest(BaseModel):
+class EmailSchema(BaseModel):
     email: EmailStr
 
 
-class PasswordResetRequest(BaseModel):
+class PasswordResetSchema(BaseModel):
     token: str
     new_password: str
 
-    @validator('new_password')
-    def validate_password(cls, v):
-        # 密码验证逻辑
-        return v
