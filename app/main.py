@@ -767,3 +767,152 @@ async def user_profile_page(
             # 您可以根据需要传递更多用户相关的统计信息或数据
         }
     )
+
+
+# ---------------------------------------------------------------------------
+# Public informational pages
+# ---------------------------------------------------------------------------
+
+
+@app.get("/about", response_class=HTMLResponse)
+async def about_page(request: Request, current_user: Optional[User] = Depends(get_current_user_optional)):
+    return templates.TemplateResponse(
+        "about.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "user_is_authenticated": current_user is not None,
+            "current_year": datetime.now().year,
+        },
+    )
+
+
+@app.get("/contact", response_class=HTMLResponse)
+async def contact_page(request: Request, current_user: Optional[User] = Depends(get_current_user_optional)):
+    return templates.TemplateResponse(
+        "contact.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "user_is_authenticated": current_user is not None,
+            "current_year": datetime.now().year,
+        },
+    )
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy_page(request: Request, current_user: Optional[User] = Depends(get_current_user_optional)):
+    return templates.TemplateResponse(
+        "privacy.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "user_is_authenticated": current_user is not None,
+            "current_year": datetime.now().year,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Password recovery and email verification pages
+# ---------------------------------------------------------------------------
+
+
+@app.get("/forgot-password", response_class=HTMLResponse)
+async def forgot_password_page(request: Request):
+    return templates.TemplateResponse(
+        "forgot_password.html",
+        {"request": request, "current_year": datetime.now().year},
+    )
+
+
+@app.get("/reset-password", response_class=HTMLResponse)
+async def reset_password_page(request: Request, token: Optional[str] = None):
+    return templates.TemplateResponse(
+        "reset_password.html",
+        {
+            "request": request,
+            "token": token,
+            "current_year": datetime.now().year,
+        },
+    )
+
+
+@app.get("/email-verified", response_class=HTMLResponse)
+async def email_verified_notice_page(request: Request):
+    return templates.TemplateResponse(
+        "email_verified_notice.html",
+        {"request": request, "current_year": datetime.now().year},
+    )
+
+
+@app.get("/email-verification-feedback", response_class=HTMLResponse)
+async def verification_feedback_page(request: Request, success: bool = True):
+    return templates.TemplateResponse(
+        "verification_feedback.html",
+        {
+            "request": request,
+            "success": success,
+            "current_year": datetime.now().year,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Admin management pages
+# ---------------------------------------------------------------------------
+
+
+@app.get("/dashboard/categories", response_class=HTMLResponse)
+async def dashboard_categories_page(
+    request: Request,
+    current_user: User = Depends(get_dashboard_user),
+):
+    if isinstance(current_user, RedirectResponse):
+        return current_user
+
+    return templates.TemplateResponse(
+        "dashboard/categories_manage.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "current_year": datetime.now().year,
+        },
+    )
+
+
+@app.get("/dashboard/tags", response_class=HTMLResponse)
+async def dashboard_tags_page(
+    request: Request,
+    current_user: User = Depends(get_dashboard_user),
+):
+    if isinstance(current_user, RedirectResponse):
+        return current_user
+
+    return templates.TemplateResponse(
+        "dashboard/tags_manage.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "current_year": datetime.now().year,
+        },
+    )
+
+
+@app.get("/dashboard/users", response_class=HTMLResponse)
+async def dashboard_users_page(
+    request: Request,
+    current_user: User = Depends(get_dashboard_user),
+):
+    if isinstance(current_user, RedirectResponse):
+        return current_user
+
+    return templates.TemplateResponse(
+        "dashboard/users_manage.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "current_year": datetime.now().year,
+        },
+    )
+
