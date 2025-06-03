@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>邮箱验证</title>
+</head>
+<body>
+    <p>您好，{{ user.username }}，</p>
+    <p>欢迎加入 Async Blog！请点击以下链接验证您的邮箱：</p>
+    <p><a href="{{ verify_link }}">{{ verify_link }}</a></p>
+    <p>如果您并未注册账户，请忽略此邮件。</p>
+</body>
+</html>

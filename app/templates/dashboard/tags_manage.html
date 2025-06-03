@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}标签管理 - Async Blog{% endblock %}
+
+{% block content %}
+<div class="row mt-section">
+    <div class="col-md-3">
+        <nav class="dashboard-nav sidebar-card p-0">
+            <a href="/dashboard" class="dashboard-nav-link">仪表盘总览</a>
+            <a href="/dashboard/posts" class="dashboard-nav-link">我的文章</a>
+            <a href="/dashboard/posts/new" class="dashboard-nav-link">发布新文章</a>
+            <a href="/dashboard/profile" class="dashboard-nav-link">个人资料</a>
+            <a href="/dashboard/categories" class="dashboard-nav-link">分类管理</a>
+            <a href="/dashboard/tags" class="dashboard-nav-link active">标签管理</a>
+            <a href="/dashboard/users" class="dashboard-nav-link">用户管理</a>
+        </nav>
+    </div>
+    <div class="col-md-9">
+        <section class="content-panel">
+            <h3 class="section-title mb-4">标签管理</h3>
+            <form id="tag-form" class="mb-4">
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <input type="text" name="name" class="form-control" placeholder="标签名" required>
+                    </div>
+                    <div class="col-md-6">
+                        <input type="text" name="description" class="form-control" placeholder="描述">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">添加</button>
+                    </div>
+                </div>
+            </form>
+            <table class="table">
+                <thead>
+                    <tr><th>名称</th><th>描述</th></tr>
+                </thead>
+                <tbody id="tags-body"></tbody>
+            </table>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', path='js/admin_tags.js') }}"></script>
+{% endblock %}

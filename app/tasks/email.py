@@ -2,9 +2,7 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from celery import shared_task
-
-
-# from app.core.config import settings
+from app.core.config import settings
 
 @shared_task
 def send_email(

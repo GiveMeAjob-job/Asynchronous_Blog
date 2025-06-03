@@ -93,3 +93,12 @@ class Token(BaseModel):
 
 class TokenPayload(BaseModel):
     sub: Optional[int] = None
+
+
+class EmailSchema(BaseModel):
+    email: EmailStr
+
+
+class PasswordResetSchema(BaseModel):
+    token: str
+    new_password: str
