@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from jose import jwt, JWTError
 from fastapi.security import OAuth2PasswordBearer
+from datetime import datetime, timedelta
 
 
 
@@ -25,7 +26,7 @@ from app.schemas.user import (
 from app.tasks.email import send_email
 from fastapi.templating import Jinja2Templates
 import logging
-
+import secrets
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
@@ -223,6 +224,7 @@ async def request_password_reset(
     return {"message": "如果邮箱存在，将发送重置邮件"}
 
 
+
 @router.post("/reset-password")
 async def reset_password(
     data: PasswordResetSchema,
@@ -242,3 +244,4 @@ async def reset_password(
     user.password_reset_token_expires_at = None
     await db.commit()
     return {"message": "密码已重置"}
+

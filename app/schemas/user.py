@@ -102,3 +102,4 @@ class EmailSchema(BaseModel):
 class PasswordResetSchema(BaseModel):
     token: str
     new_password: str
+

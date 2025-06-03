@@ -22,3 +22,7 @@ class User(Base):
 
     posts = relationship("Post", back_populates="author")
     comments = relationship("Comment", back_populates="author")
+    email_verification_token = Column(String, nullable=True)
+    email_verification_token_expires = Column(DateTime(timezone=True), nullable=True)
+    password_reset_token = Column(String, nullable=True)
+    password_reset_token_expires = Column(DateTime(timezone=True), nullable=True)
