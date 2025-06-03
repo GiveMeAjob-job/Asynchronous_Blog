@@ -666,8 +666,24 @@ async def startup_event():
 
 
 async def create_admin_user():
-    # ... (您的原有逻辑) ...
-    pass  # 保持不变
+    async with async_session() as db:
+        # 检查是否已存在管理员
+        result = await db.execute(
+            select(User).where(User.email == settings.ADMIN_EMAIL)
+        )
+        admin = result.scalars().first()
+
+        if not admin:
+            admin = User(
+                email=settings.ADMIN_EMAIL,
+                username=settings.ADMIN_USERNAME,
+                hashed_password=get_password_hash(settings.ADMIN_PASSWORD),
+                is_active=True,
+                is_superuser=True
+            )
+            db.add(admin)
+            await db.commit()
+            logger.info("Admin user created")
 
 
 @app.on_event("shutdown")
@@ -916,3 +932,20 @@ async def dashboard_users_page(
         },
     )
 
+
+@app.get("/dashboard/profile/edit", response_class=HTMLResponse)
+async def edit_user_profile_page(
+        request: Request,
+        current_user: User = Depends(get_dashboard_user)
+):
+    if isinstance(current_user, RedirectResponse):
+        return current_user
+
+    return templates.TemplateResponse(
+        "dashboard/profile_edit.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "current_year": datetime.now().year
+        }
+    )

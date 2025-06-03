@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from jose import jwt, JWTError
 from fastapi.security import OAuth2PasswordBearer
+from datetime import datetime, timedelta
 
 
 
@@ -16,7 +17,7 @@ from app.core.security import create_access_token, get_password_hash, verify_pas
 from app.models.user import User
 from app.schemas.user import User as UserSchema, UserCreate, Token
 import logging
-
+import secrets
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
@@ -150,3 +151,81 @@ async def login_for_access_token(
         "access_token": access_token,
         "token_type": "bearer",
     }
+
+
+@router.post("/request-password-reset")
+async def request_password_reset(
+        email_data: dict,  # 应该定义一个 EmailSchema
+        db: AsyncSession = Depends(get_db)
+):
+    """请求密码重置"""
+    email = email_data.get("email")
+    user = await db.execute(select(User).where(User.email == email))
+    user = user.scalars().first()
+
+    if user:
+        # 生成重置token
+        token = secrets.token_urlsafe(32)
+        user.password_reset_token = token
+        user.password_reset_token_expires = datetime.utcnow() + timedelta(hours=1)
+        await db.commit()
+
+        # 发送邮件 (需要实现)
+        # send_password_reset_email.delay(user.email, token)
+
+    # 总是返回成功，避免泄露邮箱是否存在
+    return {"message": "如果邮箱存在，重置链接已发送"}
+
+
+@router.post("/reset-password")
+async def reset_password(
+        reset_data: dict,  # 应该定义一个 PasswordResetSchema
+        db: AsyncSession = Depends(get_db)
+):
+    """重置密码"""
+    token = reset_data.get("token")
+    new_password = reset_data.get("new_password")
+
+    user = await db.execute(
+        select(User).where(
+            User.password_reset_token == token,
+            User.password_reset_token_expires > datetime.utcnow()
+        )
+    )
+    user = user.scalars().first()
+
+    if not user:
+        raise HTTPException(status_code=400, detail="无效或已过期的重置链接")
+
+    user.hashed_password = get_password_hash(new_password)
+    user.password_reset_token = None
+    user.password_reset_token_expires = None
+    await db.commit()
+
+    return {"message": "密码已成功重置"}
+
+
+@router.get("/verify-email/{token}")
+async def verify_email(
+        token: str,
+        db: AsyncSession = Depends(get_db)
+):
+    """验证邮箱"""
+    user = await db.execute(
+        select(User).where(
+            User.email_verification_token == token,
+            User.email_verification_token_expires > datetime.utcnow()
+        )
+    )
+    user = user.scalars().first()
+
+    if not user:
+        raise HTTPException(status_code=400, detail="无效或已过期的验证链接")
+
+    user.is_active = True
+    user.email_verification_token = None
+    user.email_verification_token_expires = None
+    await db.commit()
+
+    return {"message": "邮箱验证成功"}
+
