@@ -76,12 +76,17 @@ api_v1_routers = [
     (tags.router, "tags", ["标签"]),
 ]
 
+
 for router_item, prefix, tags_list in api_v1_routers:  # 避免与 tags 模型名冲突
     app.include_router(
         router_item,
         prefix=f"{settings.API_V1_STR}/{prefix}",
         tags=tags_list
     )
+
+
+
+
 
 
 # 健康检查端点
@@ -653,7 +658,7 @@ async def search(
 @app.on_event("startup")
 async def startup_event():
     logger.info(f"Starting {settings.PROJECT_NAME}")
-    await create_admin_user()
+    # await create_admin_user()
     try:
         from app.core.redis import get_redis_connection  # 移到函数内部，避免顶层导入问题
         redis = await get_redis_connection()
