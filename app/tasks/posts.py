@@ -1,16 +1,23 @@
 from datetime import datetime, timedelta
-from celery import shared_task
 from sqlalchemy import func, and_
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.future import select
 
 from app.core.config import settings
-from app.models.post import Post, Comment
+from app.models.comment import Comment
+from app.models.post import Post
 from app.core.redis import set_cache
 
+try:
+    from celery import shared_task
+except ModuleNotFoundError:
+    def shared_task(func):
+        func.delay = func
+        return func
+
 engine = create_async_engine(
-    str(settings.DATABASE_URL),
+    settings.get_database_url(async_mode=True),
     future=True,
 )
 

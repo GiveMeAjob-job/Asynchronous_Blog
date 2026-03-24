@@ -1,8 +1,15 @@
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from celery import shared_task
+
 from app.core.config import settings
+
+try:
+    from celery import shared_task
+except ModuleNotFoundError:
+    def shared_task(func):
+        func.delay = func
+        return func
 
 @shared_task
 def send_email(

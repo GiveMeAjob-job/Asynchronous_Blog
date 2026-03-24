@@ -1,13 +1,20 @@
-from sqlalchemy import Column, Integer, String, Text
+from sqlalchemy import Boolean, Column, Integer, String, Text
 from sqlalchemy.orm import relationship
-from app.core.database import Base
 
-class Category(Base):
-    __tablename__ = "categories"  # 修复这里的双下划线
-    __table_args__ = {'extend_existing': True}
+from app.core.database import Base
+from app.models.mixins import TimestampMixin
+
+
+class Category(Base, TimestampMixin):
+    __tablename__ = "categories"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True, nullable=False)
+    name = Column(String(100), unique=True, nullable=False, index=True)
+    slug = Column(String(100), unique=True, nullable=False, index=True)
     description = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
 
     posts = relationship("Post", back_populates="category")
+
+    def __repr__(self) -> str:
+        return f"<Category(id={self.id}, name='{self.name}')>"

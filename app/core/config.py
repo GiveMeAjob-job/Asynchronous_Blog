@@ -1,159 +1,116 @@
-# app/core/config.py
-from typing import Optional, List, Union
-from pydantic import EmailStr, validator, Field
-from pydantic_settings import BaseSettings
+from typing import List, Optional, Union
 import secrets
+
+from pydantic import EmailStr, Field, field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    # 基本配置
     PROJECT_NAME: str = "Async Blog"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
-    ENVIRONMENT: str = Field("development", env="ENVIRONMENT")
-    DEBUG: bool = Field(False, env="DEBUG")
+    APP_BASE_URL: str = "http://localhost:8000"
+    ENVIRONMENT: str = "development"
+    DEBUG: bool = False
 
-    # 安全配置
     SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # CORS配置
-    CORS_ORIGINS: List[str] = Field(
-        ["http://localhost:3000", "http://localhost:8000"],
-        env="CORS_ORIGINS"
-    )
-    ALLOWED_HOSTS: List[str] = Field(["*"], env="ALLOWED_HOSTS")
+    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
+    ALLOWED_HOSTS: List[str] = ["*"]
 
-    # 数据库配置 - 使用字符串类型避免 PostgresDsn 问题
-    DATABASE_URL: str = Field(
-        "postgresql+asyncpg://postgres:postgres@db:5432/async_blog",
-        env="DATABASE_URL"
-    )
-    DB_POOL_SIZE: int = Field(20, env="DB_POOL_SIZE")
-    DB_MAX_OVERFLOW: int = Field(10, env="DB_MAX_OVERFLOW")
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@db:5432/async_blog"
+    DB_POOL_SIZE: int = 20
+    DB_MAX_OVERFLOW: int = 10
     DB_POOL_PRE_PING: bool = True
     DB_POOL_RECYCLE: int = 3600
 
-    # Redis配置 - 使用字符串类型避免 RedisDsn 问题
-    REDIS_URL: str = Field(
-        "redis://redis:6379/0",
-        env="REDIS_URL"
-    )
-    REDIS_MAX_CONNECTIONS: int = Field(50, env="REDIS_MAX_CONNECTIONS")
-    CACHE_TTL: int = Field(3600, env="CACHE_TTL")
+    REDIS_URL: str = "redis://redis:6379/0"
+    REDIS_MAX_CONNECTIONS: int = 50
+    CACHE_TTL: int = 3600
 
-    # RabbitMQ配置
-    RABBITMQ_URL: str = Field(
-        "amqp://guest:guest@rabbitmq:5672//",
-        env="RABBITMQ_URL"
-    )
+    RABBITMQ_URL: str = "amqp://guest:guest@rabbitmq:5672//"
+    CELERY_BROKER_URL: Optional[str] = None
+    CELERY_RESULT_BACKEND: Optional[str] = None
 
-    # Celery配置
-    CELERY_BROKER_URL: Optional[str] = Field(None, env="CELERY_BROKER_URL")
-    CELERY_RESULT_BACKEND: Optional[str] = Field(None, env="CELERY_RESULT_BACKEND")
+    MAIL_USERNAME: Optional[str] = None
+    MAIL_PASSWORD: Optional[str] = None
+    MAIL_FROM: Optional[EmailStr] = None
+    MAIL_PORT: int = 587
+    MAIL_SERVER: Optional[str] = None
+    MAIL_TLS: bool = True
+    MAIL_SSL: bool = False
 
-    @validator("CELERY_BROKER_URL", pre=True)
-    def set_celery_broker(cls, v, values):
-        if v is None:
-            return values.get("RABBITMQ_URL")
-        return v
+    ADMIN_EMAIL: EmailStr = "admin@example.com"
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = "Admin123!"
 
-    @validator("CELERY_RESULT_BACKEND", pre=True)
-    def set_celery_backend(cls, v, values):
-        if v is None:
-            redis_url = values.get("REDIS_URL", "")
-            # 使用不同的 Redis 数据库存储 Celery 结果
-            if redis_url and "/0" in redis_url:
-                return redis_url.replace("/0", "/1")
-        return v
+    DEFAULT_PAGE_SIZE: int = 10
+    MAX_PAGE_SIZE: int = 100
 
-    # 邮件配置
-    MAIL_USERNAME: Optional[str] = Field(None, env="MAIL_USERNAME")
-    MAIL_PASSWORD: Optional[str] = Field(None, env="MAIL_PASSWORD")
-    MAIL_FROM: Optional[EmailStr] = Field(None, env="MAIL_FROM")
-    MAIL_PORT: int = Field(587, env="MAIL_PORT")
-    MAIL_SERVER: Optional[str] = Field(None, env="MAIL_SERVER")
-    MAIL_TLS: bool = Field(True, env="MAIL_TLS")
-    MAIL_SSL: bool = Field(False, env="MAIL_SSL")
+    MAX_UPLOAD_SIZE: int = 10485760
+    ALLOWED_EXTENSIONS: List[str] = ["jpg", "jpeg", "png", "gif", "webp"]
+    UPLOAD_DIR: str = "uploads"
 
-    # 管理员账号配置
-    ADMIN_EMAIL: EmailStr = Field("admin@example.com", env="ADMIN_EMAIL")
-    ADMIN_USERNAME: str = Field("admin", env="ADMIN_USERNAME")
-    ADMIN_PASSWORD: str = Field("Admin123!", env="ADMIN_PASSWORD")
+    RATE_LIMIT_PER_MINUTE: int = 60
+    RATE_LIMIT_PER_HOUR: int = 1000
 
-    # 分页配置
-    DEFAULT_PAGE_SIZE: int = Field(10, env="DEFAULT_PAGE_SIZE")
-    MAX_PAGE_SIZE: int = Field(100, env="MAX_PAGE_SIZE")
-
-    # 文件上传配置
-    MAX_UPLOAD_SIZE: int = Field(10485760, env="MAX_UPLOAD_SIZE")  # 10MB
-    ALLOWED_EXTENSIONS: List[str] = Field(
-        ["jpg", "jpeg", "png", "gif", "webp"],
-        env="ALLOWED_EXTENSIONS"
-    )
-    UPLOAD_DIR: str = Field("uploads", env="UPLOAD_DIR")
-
-    # 限流配置
-    RATE_LIMIT_PER_MINUTE: int = Field(60, env="RATE_LIMIT_PER_MINUTE")
-    RATE_LIMIT_PER_HOUR: int = Field(1000, env="RATE_LIMIT_PER_HOUR")
-
-    # 日志配置
-    LOG_LEVEL: str = Field("INFO", env="LOG_LEVEL")
+    LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
-    # SEO配置
-    SITE_NAME: str = Field("Async Blog", env="SITE_NAME")
-    SITE_DESCRIPTION: str = Field(
-        "一个基于FastAPI的现代异步博客系统",
-        env="SITE_DESCRIPTION"
-    )
-    SITE_KEYWORDS: List[str] = Field(
-        ["blog", "fastapi", "async", "python"],
-        env="SITE_KEYWORDS"
-    )
+    SITE_NAME: str = "Async Blog"
+    SITE_DESCRIPTION: str = "一个基于FastAPI的现代异步博客系统"
+    SITE_KEYWORDS: List[str] = ["blog", "fastapi", "async", "python"]
 
-    # 功能开关
-    ENABLE_REGISTRATION: bool = Field(True, env="ENABLE_REGISTRATION")
-    ENABLE_COMMENTS: bool = Field(True, env="ENABLE_COMMENTS")
-    ENABLE_CACHE: bool = Field(True, env="ENABLE_CACHE")
-    ENABLE_RATE_LIMIT: bool = Field(True, env="ENABLE_RATE_LIMIT")
+    ENABLE_REGISTRATION: bool = True
+    ENABLE_COMMENTS: bool = True
+    ENABLE_CACHE: bool = True
+    ENABLE_RATE_LIMIT: bool = True
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
-    @validator("CORS_ORIGINS", pre=True)
-    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
-        if isinstance(v, str) and not v.startswith("["):
-            return [i.strip() for i in v.split(",")]
-        elif isinstance(v, (list, str)):
-            return v
-        raise ValueError(v)
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, value: Union[str, List[str]]) -> List[str]:
+        if isinstance(value, str) and not value.startswith("["):
+            return [item.strip() for item in value.split(",") if item.strip()]
+        if isinstance(value, list):
+            return value
+        return list(value)
 
-    @validator("ALLOWED_HOSTS", pre=True)
-    def assemble_allowed_hosts(cls, v: Union[str, List[str]]) -> List[str]:
-        if isinstance(v, str):
-            return [i.strip() for i in v.split(",")]
-        return v
+    @field_validator("ALLOWED_HOSTS", mode="before")
+    @classmethod
+    def assemble_allowed_hosts(cls, value: Union[str, List[str]]) -> List[str]:
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(",") if item.strip()]
+        return list(value)
 
-    @validator("ALLOWED_EXTENSIONS", pre=True)
-    def assemble_allowed_extensions(cls, v: Union[str, List[str]]) -> List[str]:
-        if isinstance(v, str):
-            return [i.strip().lower() for i in v.split(",")]
-        return [ext.lower() for ext in v]
+    @field_validator("ALLOWED_EXTENSIONS", mode="before")
+    @classmethod
+    def assemble_allowed_extensions(cls, value: Union[str, List[str]]) -> List[str]:
+        if isinstance(value, str):
+            return [item.strip().lower() for item in value.split(",") if item.strip()]
+        return [item.lower() for item in value]
+
+    @model_validator(mode="after")
+    def set_celery_defaults(self) -> "Settings":
+        if self.CELERY_BROKER_URL is None:
+            self.CELERY_BROKER_URL = self.RABBITMQ_URL
+        if self.CELERY_RESULT_BACKEND is None:
+            if self.REDIS_URL.endswith("/0"):
+                self.CELERY_RESULT_BACKEND = self.REDIS_URL[:-2] + "/1"
+            else:
+                self.CELERY_RESULT_BACKEND = self.REDIS_URL
+        return self
 
     def get_database_url(self, async_mode: bool = True) -> str:
-        """获取数据库URL，支持同步和异步模式"""
-        # 现在 DATABASE_URL 已经是字符串，可以安全使用 startswith
         url = self.DATABASE_URL
-
         if async_mode and "postgresql://" in url and "postgresql+asyncpg://" not in url:
             url = url.replace("postgresql://", "postgresql+asyncpg://")
         elif not async_mode and "postgresql+asyncpg://" in url:
             url = url.replace("postgresql+asyncpg://", "postgresql://")
-
         return url
 
 

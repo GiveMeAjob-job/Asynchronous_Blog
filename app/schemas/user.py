@@ -1,89 +1,105 @@
-from typing import Optional, List
-from pydantic import BaseModel, EmailStr, validator
+from datetime import datetime
 import re
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+
+USERNAME_PATTERN = re.compile(r"^[\w\u4e00-\u9fa5-]+$")
 
 
 class UserBase(BaseModel):
     email: EmailStr
-    username: str
-    is_active: Optional[bool] = True
-    is_superuser: Optional[bool] = False
+    username: str = Field(..., min_length=3, max_length=50)
+    full_name: Optional[str] = Field(None, max_length=100)
+    is_active: bool = True
+    is_superuser: bool = False
 
-    @validator('username')
-    def username_alphanumeric(cls, v):
-        if not re.match(r'^[a-zA-Z0-9_]+$', v):
-            raise ValueError('用户名必须是字母、数字和下划线的组合')
-        return v
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, value: str) -> str:
+        if not USERNAME_PATTERN.match(value):
+            raise ValueError("用户名只能包含中英文、数字、下划线和横线")
+        return value.strip()
 
 
 class UserCreate(UserBase):
-    username: str
-    email: str
-    password: str
-    is_active: bool = True  # 默认激活
-    is_superuser: bool = False  # 默认非超级用户
+    password: str = Field(..., min_length=8)
 
-    @validator('username')
-    def username_alphanumeric(cls, v):
-        # 示例：允许中英文、数字、下划线、横线
-        if not re.match(r'^[\u4e00-\u9fa5_a-zA-Z0-9-]+$', v):
-            raise ValueError('用户名格式不正确')
-        return v
-
-    @validator('password')
-    def password_strong_enough(cls, v):
-        if len(v) < 8:
-            raise ValueError('密码必须至少包含8个字符')
-        if not re.search(r'[A-Z]', v):
-            raise ValueError('密码必须包含至少一个大写字母')
-        if not re.search(r'[a-z]', v):
-            raise ValueError('密码必须包含至少一个小写字母')
-        if not re.search(r'[0-9]', v):
-            raise ValueError('密码必须包含至少一个数字')
-        return v
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        if not re.search(r"[A-Z]", value):
+            raise ValueError("密码必须包含至少一个大写字母")
+        if not re.search(r"[a-z]", value):
+            raise ValueError("密码必须包含至少一个小写字母")
+        if not re.search(r"[0-9]", value):
+            raise ValueError("密码必须包含至少一个数字")
+        return value
 
 
 class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
-    username: Optional[str] = None
-    password: Optional[str] = None
-    is_active: Optional[bool] = None
-    is_superuser: Optional[bool] = None
+    username: Optional[str] = Field(None, min_length=3, max_length=50)
+    full_name: Optional[str] = Field(None, max_length=100)
+    bio: Optional[str] = Field(None, max_length=1000)
+    avatar_url: Optional[str] = None
+    website: Optional[str] = None
+    location: Optional[str] = Field(None, max_length=100)
+    password: Optional[str] = Field(None, min_length=8)
 
-    @validator('username')
-    def username_alphanumeric(cls, v):
-        if v is not None and not re.match(r'^[a-zA-Z0-9_]+$', v):
-            raise ValueError('用户名必须是字母、数字和下划线的组合')
-        return v
+    @field_validator("username")
+    @classmethod
+    def validate_optional_username(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        if not USERNAME_PATTERN.match(value):
+            raise ValueError("用户名只能包含中英文、数字、下划线和横线")
+        return value.strip()
 
-    @validator('password')
-    def password_strong_enough(cls, v):
-        if v is None:
-            return v
-        if len(v) < 8:
-            raise ValueError('密码必须至少包含8个字符')
-        if not re.search(r'[A-Z]', v):
-            raise ValueError('密码必须包含至少一个大写字母')
-        if not re.search(r'[a-z]', v):
-            raise ValueError('密码必须包含至少一个小写字母')
-        if not re.search(r'[0-9]', v):
-            raise ValueError('密码必须包含至少一个数字')
-        return v
+    @field_validator("password")
+    @classmethod
+    def validate_optional_password(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        if not re.search(r"[A-Z]", value):
+            raise ValueError("密码必须包含至少一个大写字母")
+        if not re.search(r"[a-z]", value):
+            raise ValueError("密码必须包含至少一个小写字母")
+        if not re.search(r"[0-9]", value):
+            raise ValueError("密码必须包含至少一个数字")
+        return value
 
 
-class UserInDBBase(UserBase):
+class UserBrief(BaseModel):
     id: int
+    username: str
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
 
-    class Config:
-        from_attributes = True
-
-
-class User(UserInDBBase):
-    pass
+    model_config = ConfigDict(from_attributes=True)
 
 
-class UserInDB(UserInDBBase):
+class UserResponse(UserBase):
+    id: int
+    is_verified: bool = False
+    bio: Optional[str] = None
+    avatar_url: Optional[str] = None
+    website: Optional[str] = None
+    location: Optional[str] = None
+    post_count: int = 0
+    comment_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserInDB(UserResponse):
     hashed_password: str
+
+
+User = UserResponse
 
 
 class Token(BaseModel):
@@ -101,5 +117,15 @@ class EmailSchema(BaseModel):
 
 class PasswordResetSchema(BaseModel):
     token: str
-    new_password: str
+    new_password: str = Field(..., min_length=8)
 
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, value: str) -> str:
+        if not re.search(r"[A-Z]", value):
+            raise ValueError("密码必须包含至少一个大写字母")
+        if not re.search(r"[a-z]", value):
+            raise ValueError("密码必须包含至少一个小写字母")
+        if not re.search(r"[0-9]", value):
+            raise ValueError("密码必须包含至少一个数字")
+        return value

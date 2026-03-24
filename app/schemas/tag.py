@@ -1,90 +1,58 @@
-# app/schemas/tag.py
-from __future__ import annotations
-
-from typing import Optional, List
-from pydantic import BaseModel, Field, validator
+from datetime import datetime
 import re
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-# ---- 基础类 ---------------------------------------------------
 class TagBase(BaseModel):
-    name: str = Field(..., min_length=1, max_length=30, description="标签名称")
+    name: str = Field(..., min_length=1, max_length=50)
 
-    @validator('name')
-    def validate_name(cls, v):
-        """验证标签名称格式"""
-        if not re.match(r'^[\u4e00-\u9fa5a-zA-Z0-9\-_]+$', v):
-            raise ValueError('标签名称只能包含中英文、数字、横线和下划线')
-        return v.strip().lower()  # 标签名统一小写
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        if not re.match(r"^[\u4e00-\u9fa5a-zA-Z0-9\-_]+$", value):
+            raise ValueError("标签名称只能包含中英文、数字、横线和下划线")
+        return value.strip().lower()
 
 
-# ---- 请求体 ---------------------------------------------------
 class TagCreate(TagBase):
-    """创建标签的请求体"""
     pass
 
 
 class TagUpdate(BaseModel):
-    """更新标签的请求体 - 所有字段可选"""
-    name: Optional[str] = Field(None, min_length=1, max_length=30)
+    name: Optional[str] = Field(None, min_length=1, max_length=50)
 
-    @validator('name')
-    def validate_name(cls, v):
-        if v is not None:
-            if not re.match(r'^[\u4e00-\u9fa5a-zA-Z0-9\-_]+$', v):
-                raise ValueError('标签名称只能包含中英文、数字、横线和下划线')
-            return v.strip().lower()
-        return v
+    @field_validator("name")
+    @classmethod
+    def validate_optional_name(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        if not re.match(r"^[\u4e00-\u9fa5a-zA-Z0-9\-_]+$", value):
+            raise ValueError("标签名称只能包含中英文、数字、横线和下划线")
+        return value.strip().lower()
 
 
-# ---- 响应体 ---------------------------------------------------
 class Tag(TagBase):
-    """基础标签信息"""
     id: int
-
-    class Config:
-        from_attributes = True
-
-
-class TagDetail(Tag):
-    """标签详情 - 包含统计信息"""
+    slug: str
+    created_at: datetime
+    updated_at: datetime
     post_count: int = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
-# ---- 标签云相关 -----------------------------------------------
+TagDetail = Tag
+
+
 class TagCloudItem(BaseModel):
-    """标签云中的单个标签项"""
     name: str
     count: int
-    size: int = Field(..., ge=1, le=5, description="标签大小等级 1-5")
+    size: int = Field(..., ge=1, le=5)
 
 
 class TagCloud(BaseModel):
-    """标签云数据"""
-    tags: List[TagCloudItem]
+    tags: list[TagCloudItem]
     min_count: int
     max_count: int
-
-
-# ---- 内部使用 -------------------------------------------------
-class TagInDB(TagBase):
-    """数据库中的标签对象 - 内部使用"""
-    id: int
-
-    class Config:
-        from_attributes = True
-
-
-# ---- 导出列表 -------------------------------------------------
-__all__ = [
-    "Tag",
-    "TagCreate",
-    "TagUpdate",
-    "TagDetail",
-    "TagCloud",
-    "TagCloudItem",
-    "TagInDB",
-]

@@ -1,18 +1,21 @@
-# app/schemas/category.py
-from typing import Optional
-from pydantic import BaseModel, Field, validator
+from datetime import datetime
 import re
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class CategoryBase(BaseModel):
-    name: str = Field(..., min_length=1, max_length=50)
+    name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=200)
+    is_active: bool = True
 
-    @validator('name')
-    def validate_name(cls, v):
-        if not re.match(r'^[\u4e00-\u9fa5a-zA-Z0-9\s\-_]+$', v):
-            raise ValueError('分类名称只能包含中英文、数字、空格、横线和下划线')
-        return v.strip()
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        if not re.match(r"^[\u4e00-\u9fa5a-zA-Z0-9\s\-_]+$", value):
+            raise ValueError("分类名称只能包含中英文、数字、空格、横线和下划线")
+        return value.strip()
 
 
 class CategoryCreate(CategoryBase):
@@ -20,85 +23,28 @@ class CategoryCreate(CategoryBase):
 
 
 class CategoryUpdate(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=50)
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=200)
+    is_active: Optional[bool] = None
 
-    @validator('name')
-    def validate_name(cls, v):
-        if v is not None:
-            if not re.match(r'^[\u4e00-\u9fa5a-zA-Z0-9\s\-_]+$', v):
-                raise ValueError('分类名称只能包含中英文、数字、空格、横线和下划线')
-            return v.strip()
-        return v
+    @field_validator("name")
+    @classmethod
+    def validate_optional_name(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        if not re.match(r"^[\u4e00-\u9fa5a-zA-Z0-9\s\-_]+$", value):
+            raise ValueError("分类名称只能包含中英文、数字、空格、横线和下划线")
+        return value.strip()
 
 
 class Category(CategoryBase):
     id: int
-
-    class Config:
-        from_attributes = True  # 修复：使用 Pydantic v2 语法
-
-
-class CategoryDetail(Category):
+    slug: str
+    created_at: datetime
+    updated_at: datetime
     post_count: int = 0
 
-    class Config:
-        from_attributes = True  # 修复：使用 Pydantic v2 语法
+    model_config = ConfigDict(from_attributes=True)
 
 
-# ---- Tag schemas ----
-from typing import List
-from pydantic import BaseModel, Field, validator
-import re
-
-
-class TagBase(BaseModel):
-    name: str = Field(..., min_length=1, max_length=30)
-
-    @validator('name')
-    def validate_name(cls, v):
-        if not re.match(r'^[\u4e00-\u9fa5a-zA-Z0-9\-_]+$', v):
-            raise ValueError('标签名称只能包含中英文、数字、横线和下划线')
-        return v.strip().lower()
-
-
-class TagCreate(TagBase):
-    pass
-
-
-class TagUpdate(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=30)
-
-    @validator('name')
-    def validate_name(cls, v):
-        if v is not None:
-            if not re.match(r'^[\u4e00-\u9fa5a-zA-Z0-9\-_]+$', v):
-                raise ValueError('标签名称只能包含中英文、数字、横线和下划线')
-            return v.strip().lower()
-        return v
-
-
-class Tag(TagBase):
-    id: int
-
-    class Config:
-        from_attributes = True  # 修复：使用 Pydantic v2 语法
-
-
-class TagDetail(Tag):
-    post_count: int = 0
-
-    class Config:
-        from_attributes = True  # 修复：使用 Pydantic v2 语法
-
-
-class TagCloudItem(BaseModel):
-    name: str
-    count: int
-    size: int = Field(..., ge=1, le=5, description="标签大小等级 1-5")
-
-
-class TagCloud(BaseModel):
-    tags: List[TagCloudItem]
-    min_count: int
-    max_count: int
+CategoryDetail = Category

@@ -1,142 +1,84 @@
 # Async Blog
 
-一个基于现代技术栈的异步博客系统，采用 FastAPI、SQLAlchemy、Celery 和 Redis 构建。
+一个基于 FastAPI、SQLAlchemy、Jinja2 和 Celery 的博客系统，包含公开博客页、后台管理页和一组 REST API。
 
-## 🚀 项目特性
+## 项目现状
 
-- **高性能异步 API**：基于 FastAPI 构建
-- **现代 ORM**：使用 SQLAlchemy 异步数据库操作
-- **分布式任务队列**：Celery 处理后台任务
-- **缓存优化**：Redis 性能提升
-- **安全认证**：JWT 鉴权系统
-- **容器化部署**：Docker Compose 一键部署
+- 支持文章、分类、标签、评论、用户认证与密码重置
+- Web 页面和 API 统一挂载在同一个 FastAPI 应用中
+- Docker Compose 提供 PostgreSQL、Redis、RabbitMQ、Web、Celery 和 Nginx 运行环境
+- 测试已经覆盖应用导入、健康检查、OpenAPI 暴露、JWT 生成和 slug 工具函数
 
-## 📦 技术栈
+## 技术栈
 
-- **后端**：FastAPI, SQLAlchemy
-- **异步支持**：asyncio
-- **数据库**：PostgreSQL
-- **缓存**：Redis
-- **任务队列**：Celery, RabbitMQ
-- **认证**：JWT
-- **依赖管理**：Poetry
-- **容器化**：Docker, Docker Compose
-
-## 🛠️ 快速开始
-
-### 先决条件
-
-- Docker & Docker Compose
 - Python 3.11+
+- FastAPI
+- SQLAlchemy 2.x
+- PostgreSQL
+- Redis
+- Celery + RabbitMQ
+- Jinja2
 - Poetry
 
-### 开发环境部署
-
-```bash
-# 克隆项目
-git clone https://github.com/yourusername/async-blog.git
-cd async-blog
-
-# 创建并配置 .env 文件
-cp .env.example .env
-# 编辑 .env 设置环境变量
-
-# 使用 Docker Compose 启动服务
-docker compose up -d
-
-# 创建数据库迁移
-docker compose exec web alembic revision --autogenerate -m "Initial migration"
-
-# 应用数据库迁移
-docker compose exec web alembic upgrade head
-
-# 查看所有服务的日志：
-docker compose logs
-
-# 只查看某个服务（比如 web 服务）的日志：
-docker compose logs web
-
-# 如果希望实时跟踪日志，可以加上 -f 参数：
-docker compose logs -f web
-
-```
+## 快速开始
 
 ### 本地开发
 
 ```bash
-# 安装 Poetry
-pip install poetry
-
-# 安装项目依赖
+cp .env.example .env
 poetry install
-
-# 激活虚拟环境
 poetry shell
-
-# 启动开发服务器
 uvicorn app.main:app --reload
 ```
 
-## 🌐 访问服务
+### Docker
 
-- **Web 应用**：http://localhost:8000
-- **API 文档**：http://localhost:8000/docs
-- **RabbitMQ 管理**：http://localhost:15672
-- **Celery 监控**：http://localhost:5555
-
-## 📂 项目结构
-
+```bash
+cp .env.example .env
+docker compose up -d --build
+docker compose logs -f web
 ```
+
+默认情况下，Docker 会把 PostgreSQL 暴露到宿主机 `5433` 端口，避免和本机常见的 `5432` 冲突。
+
+## 常用地址
+
+- Web 应用: http://localhost:8000
+- API 文档: http://localhost:8000/api/v1/docs
+- OpenAPI JSON: http://localhost:8000/api/v1/openapi.json
+- PostgreSQL: `localhost:5433`
+- RabbitMQ 管理台: http://localhost:15672
+- Flower: http://localhost:5555
+
+## 项目结构
+
+```text
 async_blog/
-├── alembic/              # 数据库迁移
+├── alembic/
 ├── app/
-│   ├── api/              # API 路由
-│   ├── core/             # 核心配置
-│   ├── models/           # 数据库模型
-│   ├── schemas/          # 数据验证模型
-│   ├── services/         # 业务逻辑
-│   ├── tasks/            # 后台任务
-│   └── templates/        # 前端模板
-├── static/               # 静态资源
-├── tests/                # 单元测试
-└── docker-compose.yml    # 容器编排
+│   ├── api/
+│   ├── core/
+│   ├── crud/
+│   ├── models/
+│   ├── schemas/
+│   ├── tasks/
+│   ├── templates/
+│   └── utils/
+├── static/
+├── tests/
+├── docker-compose.yml
+└── pyproject.toml
 ```
 
-## 🔧 开发指南
-
-### 数据库迁移
+## 测试
 
 ```bash
-# 生成迁移脚本
-alembic revision --autogenerate -m "描述变更"
-
-# 应用迁移
-alembic upgrade head
+pytest -q
 ```
 
-### 后台任务
+## 后台任务
 
 ```bash
-# 启动 Celery worker
-celery -A app.tasks.worker worker -l info
+celery -A app.tasks.worker worker --loglevel=info
+celery -A app.tasks.worker beat --loglevel=info
 ```
-
-## 🤝 贡献
-
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
-3. 提交变更 (`git commit -m 'Add some amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 创建 Pull Request
-
-## 🛡️ 安全
-
-请查看 [SECURITY.md](SECURITY.md) 了解报告安全漏洞的流程。
-
-## 📄 许可证
-
-本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件。
-
-## 🌟 鸣谢
-
-感谢所有为项目做出贡献的开发者和开源社区！

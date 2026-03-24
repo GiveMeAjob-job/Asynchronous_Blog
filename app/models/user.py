@@ -1,38 +1,59 @@
-from sqlalchemy import Boolean, Column, Integer, String, DateTime
-from sqlalchemy.sql import func
+from datetime import datetime, timedelta
+import secrets
+
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
 from sqlalchemy.orm import relationship
+
 from app.core.database import Base
+from app.models.mixins import TimestampMixin
 
 
-class User(Base):
+class User(Base, TimestampMixin):
     __tablename__ = "users"
-    __table_args__ = {'extend_existing': True}  # 确保这个参数对于您的用例是必要的
 
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
-    username = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    username = Column(String(50), unique=True, index=True, nullable=False)
+    hashed_password = Column(String(255), nullable=False)
 
-    # 用于邮件验证的字段
-    email_verification_token = Column(String, index=True, unique=True, nullable=True)  # token 通常应该是唯一的（或者在生成时保证唯一性）
+    full_name = Column(String(100), nullable=True)
+    bio = Column(Text, nullable=True)
+    avatar_url = Column(String(500), nullable=True)
+    website = Column(String(200), nullable=True)
+    location = Column(String(100), nullable=True)
+
+    is_active = Column(Boolean, default=True, nullable=False)
+    is_superuser = Column(Boolean, default=False, nullable=False)
+    is_verified = Column(Boolean, default=False, nullable=False)
+
+    email_verification_token = Column(String(255), unique=True, index=True, nullable=True)
     email_verification_token_expires_at = Column(DateTime(timezone=True), nullable=True)
-
-    # 用于密码重置的字段
-    password_reset_token = Column(String, index=True, unique=True, nullable=True)  # token 通常应该是唯一的
+    password_reset_token = Column(String(255), unique=True, index=True, nullable=True)
     password_reset_token_expires_at = Column(DateTime(timezone=True), nullable=True)
 
-    # 其他字段
-    is_active = Column(Boolean, default=True)
-    is_superuser = Column(Boolean, default=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    post_count = Column(Integer, default=0, nullable=False)
+    comment_count = Column(Integer, default=0, nullable=False)
 
-    # 关系
-    posts = relationship("Post", back_populates="author")
-    comments = relationship("Comment", back_populates="author")
+    posts = relationship("Post", back_populates="author", cascade="all, delete-orphan")
+    comments = relationship("Comment", back_populates="author", cascade="all, delete-orphan")
+    post_likes = relationship("PostLike", back_populates="user", cascade="all, delete-orphan")
+    comment_likes = relationship("CommentLike", back_populates="user", cascade="all, delete-orphan")
 
-    # 移除下面这些重复的定义：
-    # email_verification_token = Column(String, nullable=True)
-    # email_verification_token_expires = Column(DateTime(timezone=True), nullable=True)
-    # password_reset_token = Column(String, nullable=True)
-    # password_reset_token_expires = Column(DateTime(timezone=True), nullable=True)
+    def generate_email_verification_token(self) -> str:
+        self.email_verification_token = secrets.token_urlsafe(32)
+        self.email_verification_token_expires_at = datetime.utcnow() + timedelta(hours=24)
+        return self.email_verification_token
+
+    def generate_password_reset_token(self) -> str:
+        self.password_reset_token = secrets.token_urlsafe(32)
+        self.password_reset_token_expires_at = datetime.utcnow() + timedelta(hours=1)
+        return self.password_reset_token
+
+    def verify_email(self) -> None:
+        self.is_verified = True
+        self.is_active = True
+        self.email_verification_token = None
+        self.email_verification_token_expires_at = None
+
+    def __repr__(self) -> str:
+        return f"<User(id={self.id}, username='{self.username}', email='{self.email}')>"

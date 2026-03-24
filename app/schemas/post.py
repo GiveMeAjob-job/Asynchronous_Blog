@@ -1,148 +1,99 @@
-# 修复文件：app/schemas/post.py
-
-from typing import Optional, List, Any
 from datetime import datetime
-from pydantic import BaseModel, validator, Field, ConfigDict
 import re
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.schemas.category import Category
+from app.schemas.comment import Comment
+from app.schemas.tag import Tag
+from app.schemas.user import UserBrief
 
 
-# 定义基础schemas
-class TagBase(BaseModel):
-    name: str
+def _normalize_slug(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    slug = re.sub(r"\s+", "-", value.strip().lower())
+    slug = re.sub(r"[^\w\u4e00-\u9fa5-]", "", slug)
+    slug = re.sub(r"-+", "-", slug).strip("-")
+    return slug or None
 
 
-class TagCreate(TagBase):
-    pass
-
-
-class Tag(TagBase):
-    id: int
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class CategoryBase(BaseModel):
-    name: str
-    description: Optional[str] = None
-
-
-class CategoryCreate(CategoryBase):
-    pass
-
-
-class Category(CategoryBase):
-    id: int
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class UserBase(BaseModel):
-    username: str
-    email: str
-
-
-class User(UserBase):
-    id: int
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class CommentBase(BaseModel):
-    content: str
-
-
-class CommentCreate(CommentBase):
-    post_id: int
-
-
-class Comment(CommentBase):
-    id: int
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-    author_id: int
-    post_id: int
-    # 为了避免循环引用，这里可以选择包含作者信息
-    author: Optional[User] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-# 文章相关schemas
 class PostBase(BaseModel):
-    title: str
-    content: str
-    published: Optional[bool] = False
+    title: str = Field(..., min_length=1, max_length=200)
+    summary: Optional[str] = Field(None, max_length=500)
+    content: str = Field(..., min_length=1)
+    featured_image: Optional[str] = None
     category_id: Optional[int] = None
+    published: bool = False
+    is_featured: bool = False
+    allow_comments: bool = True
+    meta_title: Optional[str] = Field(None, max_length=255)
+    meta_description: Optional[str] = Field(None, max_length=500)
+    meta_keywords: Optional[str] = Field(None, max_length=255)
 
 
 class PostCreate(PostBase):
-    slug: Optional[str] = None
-    tags: Optional[List[str]] = []
+    slug: Optional[str] = Field(None, min_length=1, max_length=255)
+    tags: list[str] = Field(default_factory=list)
 
-    @validator('slug', pre=True, always=True)
-    def generate_slug(cls, v, values):
-        if 'title' in values and (v is None or v == ""):
-            slug = values['title'].lower()
-            slug = re.sub(r'\s+', '-', slug)
-            slug = re.sub(r'[^\w\-]', '', slug)
-            slug = re.sub(r'-+', '-', slug)
-            return slug.strip('-')
-        if v is not None:
-            slug = v.lower()
-            slug = re.sub(r'\s+', '-', slug)
-            slug = re.sub(r'[^\w\-]', '', slug)
-            slug = re.sub(r'-+', '-', slug)
-            return slug.strip('-')
-        return v
+    @field_validator("slug", mode="before")
+    @classmethod
+    def normalize_slug(cls, value: Optional[str]) -> Optional[str]:
+        return _normalize_slug(value)
 
 
 class PostUpdate(BaseModel):
-    title: Optional[str] = None
-    content: Optional[str] = None
-    published: Optional[bool] = None
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    summary: Optional[str] = Field(None, max_length=500)
+    content: Optional[str] = Field(None, min_length=1)
+    featured_image: Optional[str] = None
+    slug: Optional[str] = Field(None, min_length=1, max_length=255)
     category_id: Optional[int] = None
-    tags: Optional[List[str]] = None
+    tags: Optional[list[str]] = None
+    published: Optional[bool] = None
+    is_featured: Optional[bool] = None
+    allow_comments: Optional[bool] = None
+    meta_title: Optional[str] = Field(None, max_length=255)
+    meta_description: Optional[str] = Field(None, max_length=500)
+    meta_keywords: Optional[str] = Field(None, max_length=255)
+
+    @field_validator("slug", mode="before")
+    @classmethod
+    def normalize_update_slug(cls, value: Optional[str]) -> Optional[str]:
+        return _normalize_slug(value)
 
 
-class Post(PostBase):
+class PostResponse(PostBase):
     id: int
     slug: str
-    created_at: datetime
-    updated_at: Optional[datetime] = None
     author_id: int
-    views: Optional[int] = 0
-
-    # 关系字段 - 使用Optional避免加载问题
-    tags: Optional[List[Tag]] = []
+    published_at: Optional[datetime] = None
+    views: int = 0
+    like_count: int = 0
+    comment_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+    author: UserBrief
     category: Optional[Category] = None
-    author: Optional[User] = None
+    tags: list[Tag] = Field(default_factory=list)
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        # 允许在序列化时忽略None值
-        exclude_none=False
-    )
-
-    @validator('tags', pre=True)
-    def ensure_tags_list(cls, v):
-        """确保tags始终是列表"""
-        if v is None:
-            return []
-        return v
+    model_config = ConfigDict(from_attributes=True)
 
 
-class PostDetail(Post):
-    # 继承Post的所有字段
-    comments: Optional[List[Comment]] = []
+class PostDetailResponse(PostResponse):
+    comments: list[Comment] = Field(default_factory=list)
+    is_liked_by_current_user: bool = False
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        exclude_none=False
-    )
 
-    @validator('comments', pre=True)
-    def ensure_comments_list(cls, v):
-        """确保comments始终是列表"""
-        if v is None:
-            return []
-        return v
+Post = PostResponse
+PostDetail = PostDetailResponse
+
+
+class PostStats(BaseModel):
+    total_posts: int
+    published_posts: int
+    draft_posts: int
+    total_views: int
+    total_likes: int
+    total_comments: int

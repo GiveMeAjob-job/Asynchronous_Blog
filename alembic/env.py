@@ -26,7 +26,8 @@ from app.core.database import Base
 
 # 显式导入所有模型
 from app.models.user import User
-from app.models.post import Post, post_tag
+from app.models.post import Post
+from app.models.tag import post_tag
 from app.models.comment import Comment
 from app.models.category import Category
 from app.models.tag import Tag

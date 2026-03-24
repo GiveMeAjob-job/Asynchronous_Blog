@@ -1,4 +1,5 @@
 # app/main.py
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional, Any  # Any 可能在 UserCreate 中用到
 import math
@@ -23,7 +24,7 @@ from jose import jwt, JWTError  # <--- 确保导入 JWTError
 from app.core.config import settings
 from app.core.database import get_db, async_session  # async_session 是 sessionmaker 实例
 from app.core.logging import setup_logging
-from app.api.v1 import auth, posts, users, categories, tags
+from app.api.v1 import auth, comments, posts, users, categories, tags
 from app.models import import_all
 from app.core.security import get_password_hash
 from app.core.middleware import log_requests, add_process_time_header
@@ -35,12 +36,30 @@ logger = logging.getLogger(__name__)
 # 导入模型
 User, Category, Tag, Post, post_tag, Comment = import_all()
 
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    logger.info(f"Starting {settings.PROJECT_NAME}")
+    try:
+        from app.core.redis import get_redis_connection
+
+        redis = await get_redis_connection()
+        await redis.ping()
+        logger.info("Redis connection successful")
+    except Exception as e:
+        logger.error(f"Redis connection failed: {e}")
+
+    yield
+
+    logger.info(f"Shutting down {settings.PROJECT_NAME}")
+
 # 创建应用
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     docs_url=f"{settings.API_V1_STR}/docs",
     redoc_url=f"{settings.API_V1_STR}/redoc",
+    lifespan=lifespan,
 )
 
 # 中间件配置
@@ -72,6 +91,7 @@ api_v1_routers = [
     (auth.router, "auth", ["认证"]),
     (users.router, "users", ["用户"]),
     (posts.router, "posts", ["文章"]),
+    (comments.router, "comments", ["评论"]),
     (categories.router, "categories", ["分类"]),
     (tags.router, "tags", ["标签"]),
 ]
@@ -206,10 +226,8 @@ async def get_current_user_optional(request: Request, db: AsyncSession = Depends
 async def update_post_views(db: AsyncSession, post: Post):
     """异步更新文章阅读量"""
     post.views = (post.views or 0) + 1
-    # 不需要单独 commit，依赖 get_db 的 commit
-    await db.merge(post)  # 使用 merge 以确保 post 在 session 中
-    # 注意：如果 get_db 在异常时 rollback，这个浏览量可能不会保存。
-    # 对于浏览量这种非关键数据，可以考虑更独立的更新机制，或者接受它在某些错误情况下可能不保存。
+    await db.flush()
+    await db.commit()
 
 
 async def get_sidebar_data(db: AsyncSession) -> dict:
@@ -306,7 +324,7 @@ async def index(
         request: Request,
         page: int = Query(1, ge=1),
         per_page: int = Query(settings.DEFAULT_PAGE_SIZE, le=settings.MAX_PAGE_SIZE),
-        sort: str = Query("newest", regex="^(newest|oldest|popular)$"),
+        sort: str = Query("newest", pattern="^(newest|oldest|popular)$"),
         category_id: Optional[int] = None,
         tag_name: Optional[str] = None,
         db: AsyncSession = Depends(get_db),
@@ -654,22 +672,6 @@ async def search(
     )
 
 
-# 启动事件
-@app.on_event("startup")
-async def startup_event():
-    logger.info(f"Starting {settings.PROJECT_NAME}")
-    # await create_admin_user()
-    try:
-        from app.core.redis import get_redis_connection  # 移到函数内部，避免顶层导入问题
-        redis = await get_redis_connection()
-        await redis.ping()
-        # PEXPIRE key milliseconds -- Set a key's time to live in milliseconds.
-        # await redis.close() # 不要在启动时关闭连接池创建的连接
-        logger.info("Redis connection successful")
-    except Exception as e:
-        logger.error(f"Redis connection failed: {e}")
-
-
 async def create_admin_user():
     async with async_session() as db:
         # 检查是否已存在管理员
@@ -689,15 +691,6 @@ async def create_admin_user():
             db.add(admin)
             await db.commit()
             logger.info("Admin user created")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info(f"Shutting down {settings.PROJECT_NAME}")
-    # from app.core.database import db_manager # 如果您有 db_manager
-    # await db_manager.close()
-
-
 # 错误处理
 @app.exception_handler(HTTPException)  # 更具体地捕获 FastAPI 的 HTTPException
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -955,4 +948,3 @@ async def edit_user_profile_page(
             "current_year": datetime.now().year
         }
     )
-
