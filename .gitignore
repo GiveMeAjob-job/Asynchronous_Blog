@@ -187,3 +187,8 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+# local tooling leftovers
+app/alembic.ini
+static/js/axios.min.js
+static/js/bootstrap.bundle.min.js
