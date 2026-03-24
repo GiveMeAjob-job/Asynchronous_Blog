@@ -1,0 +1,39 @@
+<aside class="dashboard-sidebar sidebar-card">
+    <div class="dashboard-sidebar__header">
+        <p class="eyebrow">控制台</p>
+        <h2 class="dashboard-sidebar__title">{{ current_user.full_name or current_user.username }}</h2>
+        <p class="dashboard-sidebar__meta">{{ current_user.email }}</p>
+    </div>
+
+    <nav class="dashboard-nav">
+        <a href="{{ url_for('dashboard') }}" class="dashboard-nav-link {% if dashboard_section == 'overview' %}active{% endif %}">
+            仪表盘总览
+        </a>
+        <a href="{{ url_for('my_posts') }}" class="dashboard-nav-link {% if dashboard_section == 'posts' %}active{% endif %}">
+            我的文章
+        </a>
+        <a href="{{ url_for('dashboard_analytics_page') }}" class="dashboard-nav-link {% if dashboard_section == 'analytics' %}active{% endif %}">
+            数据分析
+        </a>
+        <a href="{{ url_for('dashboard_comments_page') }}" class="dashboard-nav-link {% if dashboard_section == 'comments' %}active{% endif %}">
+            评论管理
+        </a>
+        <a href="{{ url_for('new_post_page') }}" class="dashboard-nav-link {% if dashboard_section == 'new_post' %}active{% endif %}">
+            发布新文章
+        </a>
+        <a href="{{ url_for('user_profile_page') }}" class="dashboard-nav-link {% if dashboard_section == 'profile' %}active{% endif %}">
+            个人资料
+        </a>
+        {% if current_user.is_superuser %}
+        <a href="{{ url_for('dashboard_categories_page') }}" class="dashboard-nav-link {% if dashboard_section == 'categories' %}active{% endif %}">
+            分类管理
+        </a>
+        <a href="{{ url_for('dashboard_tags_page') }}" class="dashboard-nav-link {% if dashboard_section == 'tags' %}active{% endif %}">
+            标签管理
+        </a>
+        <a href="{{ url_for('dashboard_users_page') }}" class="dashboard-nav-link {% if dashboard_section == 'users' %}active{% endif %}">
+            用户管理
+        </a>
+        {% endif %}
+    </nav>
+</aside>

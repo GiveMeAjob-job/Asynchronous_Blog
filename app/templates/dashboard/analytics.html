@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}数据分析 - Async Blog{% endblock %}
+
+{% block content %}
+<section class="page-section">
+    <div class="dashboard-shell">
+        {% include "dashboard/_sidebar.html" %}
+
+        <section class="content-panel">
+            <div class="section-heading section-heading--compact">
+                <div>
+                    <p class="eyebrow">Analytics</p>
+                    <h1>你的内容最近表现怎么样</h1>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <article class="stat-card">
+                    <span class="stat-card__label">已发布文章</span>
+                    <strong class="stat-card__value">{{ published_posts }}</strong>
+                </article>
+                <article class="stat-card">
+                    <span class="stat-card__label">平均浏览</span>
+                    <strong class="stat-card__value">{{ average_views }}</strong>
+                </article>
+                <article class="stat-card">
+                    <span class="stat-card__label">平均点赞</span>
+                    <strong class="stat-card__value">{{ average_likes }}</strong>
+                </article>
+                <article class="stat-card">
+                    <span class="stat-card__label">平均评论</span>
+                    <strong class="stat-card__value">{{ average_comments }}</strong>
+                </article>
+            </div>
+
+            <div class="panel-grid">
+                <section class="sub-panel">
+                    <div class="section-heading section-heading--compact">
+                        <div>
+                            <p class="eyebrow">Momentum</p>
+                            <h2>近 6 个月发布节奏</h2>
+                        </div>
+                    </div>
+
+                    <div class="insight-list">
+                        {% for item in monthly_data %}
+                        <div class="insight-row">
+                            <div class="insight-row__label">{{ item.label }}</div>
+                            <div class="insight-row__bar">
+                                <span style="width: {{ item.percent or 8 }}%"></span>
+                            </div>
+                            <strong>{{ item.count }}</strong>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+
+                <section class="sub-panel">
+                    <div class="section-heading section-heading--compact">
+                        <div>
+                            <p class="eyebrow">Categories</p>
+                            <h2>分类分布</h2>
+                        </div>
+                    </div>
+
+                    {% if category_breakdown %}
+                    <div class="insight-list">
+                        {% for item in category_breakdown %}
+                        <div class="insight-row">
+                            <div class="insight-row__label">{{ item.name }}</div>
+                            <div class="insight-row__bar">
+                                <span style="width: {{ item.percent or 8 }}%"></span>
+                            </div>
+                            <strong>{{ item.count }}</strong>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="muted">等你把文章归进更多分类后，这里会出现更清晰的内容结构。</p>
+                    {% endif %}
+                </section>
+            </div>
+
+            <div class="panel-grid">
+                <section class="sub-panel">
+                    <div class="section-heading section-heading--compact">
+                        <div>
+                            <p class="eyebrow">Top Posts</p>
+                            <h2>表现最好的文章</h2>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th>标题</th>
+                                    <th>浏览</th>
+                                    <th>点赞</th>
+                                    <th>评论</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for post in top_posts %}
+                                <tr>
+                                    <td><a href="{{ url_for('post_detail', slug=post.slug) }}">{{ post.title }}</a></td>
+                                    <td>{{ post.views }}</td>
+                                    <td>{{ post.like_count }}</td>
+                                    <td>{{ post.comment_count }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="table-empty">先发布几篇文章，这里会开始告诉你哪些内容更有表现。</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="sub-panel">
+                    <div class="section-heading section-heading--compact">
+                        <div>
+                            <p class="eyebrow">Conversation</p>
+                            <h2>最新评论</h2>
+                        </div>
+                        <a href="{{ url_for('dashboard_comments_page') }}" class="btn btn-ghost btn-sm">去管理</a>
+                    </div>
+
+                    <div class="moderation-list">
+                        {% for comment in recent_comments %}
+                        <article class="moderation-card">
+                            <strong>{{ comment.author.full_name or comment.author.username }}</strong>
+                            <p>{{ comment.content|excerpt(120) }}</p>
+                            <span>{{ comment.post.title if comment.post else '未知文章' }} · {{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                        </article>
+                        {% else %}
+                        <p class="muted">还没有评论数据，等读者开始互动后这里会更有意思。</p>
+                        {% endfor %}
+                    </div>
+                </section>
+            </div>
+        </section>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ static_asset(request, 'js/dashboard.js') }}"></script>
+{% endblock %}

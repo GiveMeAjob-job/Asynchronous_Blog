@@ -1,0 +1,38 @@
+services:
+  db:
+    ports: []
+
+  redis:
+    ports: []
+
+  rabbitmq:
+    ports: []
+
+  web:
+    env_file:
+      - .env.production
+    ports: []
+
+  celery_worker:
+    env_file:
+      - .env.production
+
+  celery_beat:
+    env_file:
+      - .env.production
+
+  flower:
+    env_file:
+      - .env.production
+    profiles:
+      - ops
+    ports: []
+
+  nginx:
+    volumes:
+      - ./nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./static:/usr/share/nginx/html/static:ro
+      - ./uploads:/usr/share/nginx/html/uploads:ro
+      - ./certs:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+

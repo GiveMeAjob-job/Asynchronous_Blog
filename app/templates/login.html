@@ -44,5 +44,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', path='js/login.js') }}"></script>
+<script src="{{ static_asset(request, 'js/login.js') }}"></script>
 {% endblock %}

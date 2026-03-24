@@ -3,19 +3,9 @@
 {% block title %}分类管理 - Async Blog{% endblock %}
 
 {% block content %}
-<div class="row mt-section">
-    <div class="col-md-3">
-        <nav class="dashboard-nav sidebar-card p-0">
-            <a href="/dashboard" class="dashboard-nav-link">仪表盘总览</a>
-            <a href="/dashboard/posts" class="dashboard-nav-link">我的文章</a>
-            <a href="/dashboard/posts/new" class="dashboard-nav-link">发布新文章</a>
-            <a href="/dashboard/profile" class="dashboard-nav-link">个人资料</a>
-            <a href="/dashboard/categories" class="dashboard-nav-link active">分类管理</a>
-            <a href="/dashboard/tags" class="dashboard-nav-link">标签管理</a>
-            <a href="/dashboard/users" class="dashboard-nav-link">用户管理</a>
-        </nav>
-    </div>
-    <div class="col-md-9">
+<section class="page-section">
+    <div class="dashboard-shell">
+        {% include "dashboard/_sidebar.html" %}
         <section class="content-panel">
             <h3 class="section-title mb-4">分类管理</h3>
             <form id="category-form" class="mb-4">
@@ -31,7 +21,7 @@
                     </div>
                 </div>
             </form>
-            <table class="table">
+            <table class="custom-table">
                 <thead>
                     <tr><th>名称</th><th>描述</th><th>文章数</th></tr>
                 </thead>
@@ -40,10 +30,9 @@
 
         </section>
     </div>
-</div>
+</section>
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', path='js/admin_categories.js') }}"></script>
+<script src="{{ static_asset(request, 'js/admin_categories.js') }}"></script>
 {% endblock %}
-

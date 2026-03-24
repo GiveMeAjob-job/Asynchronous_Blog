@@ -1,9 +1,11 @@
 # app/main.py
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Optional, Any  # Any 可能在 UserCreate 中用到
+from pathlib import Path
+from typing import Optional, Any
 import math
 import logging
+from xml.sax.saxutils import escape as xml_escape
 
 from fastapi import FastAPI, Request, Depends, Query, HTTPException, status, Response, Cookie
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -17,17 +19,25 @@ from sqlalchemy.ext.asyncio import AsyncSession, \
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy import func, and_, or_
-from jose import jwt, JWTError  # <--- 确保导入 JWTError
+from jose import JWTError
+from markdown import markdown as render_markdown
+from markupsafe import Markup
 
-# 从 app.api.v1.dependencies 导入 get_current_user (如果 API 端点仍在使用它)
-# from app.api.v1.dependencies import get_current_user # 注意：下面的 get_current_user_optional 是新定义的
 from app.core.config import settings
 from app.core.database import get_db, async_session  # async_session 是 sessionmaker 实例
 from app.core.logging import setup_logging
 from app.api.v1 import auth, comments, posts, users, categories, tags
 from app.models import import_all
-from app.core.security import get_password_hash
-from app.core.middleware import log_requests, add_process_time_header
+from app.models.comment import COMMENT_STATUS_APPROVED, COMMENT_STATUS_HIDDEN, COMMENT_STATUS_PENDING
+from app.models.like import PostLike
+from app.core.security import decode_access_token, decode_post_preview_token, get_password_hash
+from app.core.middleware import (
+    SecurityHeadersMiddleware,
+    RateLimitContextMiddleware,
+    log_requests,
+    add_process_time_header,
+)
+from app.utils.slug import generate_slug
 
 # 设置日志
 setup_logging()
@@ -46,6 +56,8 @@ async def lifespan(_: FastAPI):
         redis = await get_redis_connection()
         await redis.ping()
         logger.info("Redis connection successful")
+    except ModuleNotFoundError as e:
+        logger.warning(f"Redis support unavailable: {e}")
     except Exception as e:
         logger.error(f"Redis connection failed: {e}")
 
@@ -64,6 +76,8 @@ app = FastAPI(
 
 # 中间件配置
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RateLimitContextMiddleware)
 app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=["*"] if settings.ENVIRONMENT == "development" else settings.ALLOWED_HOSTS
@@ -85,6 +99,44 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # 设置模板
 templates = Jinja2Templates(directory="app/templates")
+
+
+def static_asset(request: Request, path: str) -> str:
+    asset_path = Path("static") / path
+    version = str(int(asset_path.stat().st_mtime)) if asset_path.exists() else settings.VERSION
+    return f"{request.url_for('static', path=path)}?v={version}"
+
+
+def markdown_filter(value: Optional[str]) -> Markup:
+    if not value:
+        return Markup("")
+    rendered = render_markdown(
+        value,
+        extensions=[
+            "extra",
+            "fenced_code",
+            "tables",
+            "sane_lists",
+            "nl2br",
+            "toc",
+        ],
+        output_format="html5",
+    )
+    return Markup(rendered)
+
+
+def excerpt_filter(value: Optional[str], length: int = 180) -> str:
+    if not value:
+        return ""
+    plain_text = " ".join(value.split())
+    if len(plain_text) <= length:
+        return plain_text
+    return plain_text[:length].rsplit(" ", 1)[0] + "..."
+
+
+templates.env.filters["markdown"] = markdown_filter
+templates.env.filters["excerpt"] = excerpt_filter
+templates.env.globals["static_asset"] = static_asset
 
 # 注册API路由 - 统一使用 API 版本前缀
 api_v1_routers = [
@@ -120,7 +172,7 @@ async def health_check():
 async def get_dashboard_user(
         request: Request,
         db: AsyncSession = Depends(get_db),  # get_db 提供了会话
-        access_token: Optional[str] = Cookie(None)
+        access_token: Optional[str] = Cookie(None, alias=settings.ACCESS_COOKIE_NAME)
 ) -> User:
     """
     仪表盘页面的用户认证依赖。
@@ -148,8 +200,9 @@ async def get_dashboard_user(
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="需要登录")
 
     try:
-        payload = jwt.decode(token_to_decode, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = decode_access_token(token_to_decode)
         user_id_from_token: Optional[str] = payload.get("sub")
+        token_version = int(payload.get("ver", 0))
         if user_id_from_token is None:
             raise JWTError("Invalid token: sub claim missing")
 
@@ -172,7 +225,7 @@ async def get_dashboard_user(
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="令牌无效或已过期")
 
     user = await db.get(User, user_id)
-    if not user or not user.is_active:
+    if not user or not user.is_active or user.token_version != token_version:
         logger.warning(
             f"User not found or inactive in get_dashboard_user for user_id: {user_id} (path: {request.url.path})")
         accept_header = request.headers.get("accept", "")
@@ -189,7 +242,7 @@ async def get_dashboard_user(
     return user
 
 
-async def get_current_user_optional(request: Request, db: AsyncSession = Depends(get_db)) -> Optional[User]:
+async def get_current_user_optional(request: Request) -> Optional[User]:
     """可选的用户认证，用于非强制登录页面，不会抛出异常或重定向。"""
     token_to_decode: Optional[str] = None
     authorization_header: Optional[str] = request.headers.get("Authorization")
@@ -197,14 +250,15 @@ async def get_current_user_optional(request: Request, db: AsyncSession = Depends
     if authorization_header and authorization_header.startswith("Bearer "):
         token_to_decode = authorization_header.split("Bearer ")[1]
     else:
-        token_to_decode = request.cookies.get("access_token")
+        token_to_decode = request.cookies.get(settings.ACCESS_COOKIE_NAME)
 
     if not token_to_decode:
         return None
 
     try:
-        payload = jwt.decode(token_to_decode, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = decode_access_token(token_to_decode)
         user_id_from_token: Optional[str] = payload.get("sub")
+        token_version = int(payload.get("ver", 0))
         if user_id_from_token is None:
             return None
 
@@ -213,8 +267,9 @@ async def get_current_user_optional(request: Request, db: AsyncSession = Depends
         except ValueError:
             return None  # Invalid ID format
 
-        user = await db.get(User, user_id)
-        return user if user and user.is_active else None
+        async with async_session() as db:
+            user = await db.get(User, user_id)
+            return user if user and user.is_active and user.token_version == token_version else None
 
     except JWTError:
         return None
@@ -230,46 +285,146 @@ async def update_post_views(db: AsyncSession, post: Post):
     await db.commit()
 
 
+def serialize_category_counts(rows: list[tuple[Category, int]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": category.id,
+            "name": category.name,
+            "slug": category.slug,
+            "description": category.description,
+            "post_count": post_count,
+        }
+        for category, post_count in rows
+    ]
+
+
+def serialize_tag_counts(rows: list[tuple[Tag, int]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": tag.id,
+            "name": tag.name,
+            "slug": tag.slug,
+            "post_count": post_count,
+        }
+        for tag, post_count in rows
+    ]
+
+
+def build_absolute_url(path: str) -> str:
+    base = settings.APP_BASE_URL.rstrip("/")
+    if path.startswith("http://") or path.startswith("https://"):
+        return path
+    normalized_path = path if path.startswith("/") else f"/{path}"
+    return f"{base}{normalized_path}"
+
+
+async def ensure_category_slug(db: AsyncSession, category: Category) -> str:
+    if category.slug:
+        return category.slug
+
+    base_slug = generate_slug(category.name, max_length=100)
+    slug = base_slug
+    suffix = 1
+    while True:
+        result = await db.execute(select(Category.id).where(Category.slug == slug, Category.id != category.id))
+        if result.scalar_one_or_none() is None:
+            category.slug = slug
+            await db.flush()
+            return slug
+        slug = f"{base_slug}-{suffix}"
+        suffix += 1
+
+
+async def ensure_tag_slug(db: AsyncSession, tag: Tag) -> str:
+    if tag.slug:
+        return tag.slug
+
+    base_slug = generate_slug(tag.name, max_length=255)
+    slug = base_slug
+    suffix = 1
+    while True:
+        result = await db.execute(select(Tag.id).where(Tag.slug == slug, Tag.id != tag.id))
+        if result.scalar_one_or_none() is None:
+            tag.slug = slug
+            await db.flush()
+            return slug
+        slug = f"{base_slug}-{suffix}"
+        suffix += 1
+
+
 async def get_sidebar_data(db: AsyncSession) -> dict:
     """获取侧边栏数据"""
     try:
-        # 分类查询 - 使用 selectinload 预加载关系
-        cat_query = select(Category, func.count(Post.id).label('post_count')) \
-            .outerjoin(Post, and_(Category.id == Post.category_id, Post.published == True)) \
+        cat_query = (
+            select(Category, func.count(Post.id).label("post_count"))
+            .outerjoin(Post, and_(Category.id == Post.category_id, Post.published == True))
             .group_by(Category.id)
+            .order_by(func.count(Post.id).desc(), Category.name.asc())
+        )
         cat_result = await db.execute(cat_query)
         categories = cat_result.all()
 
-        # 标签查询
-        tag_query = select(Tag).order_by(Tag.name).limit(30)
+        tag_query = (
+            select(Tag, func.count(Post.id).label("post_count"))
+            .outerjoin(post_tag, Tag.id == post_tag.c.tag_id)
+            .outerjoin(Post, and_(post_tag.c.post_id == Post.id, Post.published == True))
+            .group_by(Tag.id)
+            .order_by(func.count(Post.id).desc(), Tag.name.asc())
+            .limit(30)
+        )
         tag_result = await db.execute(tag_query)
-        tags = tag_result.scalars().all()
+        tags = tag_result.all()
 
-        # 热门文章查询 - 预加载关系
-        popular_query = select(Post).options(
-            selectinload(Post.author),
-            selectinload(Post.category),
-            selectinload(Post.tags)
-        ).where(Post.published == True) \
-            .order_by(Post.views.desc()) \
+        slugs_updated = False
+        for category, _ in categories:
+            if not category.slug:
+                await ensure_category_slug(db, category)
+                slugs_updated = True
+        for tag, _ in tags:
+            if not tag.slug:
+                await ensure_tag_slug(db, tag)
+                slugs_updated = True
+        if slugs_updated:
+            await db.commit()
+
+        popular_query = (
+            select(Post)
+            .options(selectinload(Post.author), selectinload(Post.category), selectinload(Post.tags))
+            .where(Post.published == True)
+            .order_by((Post.views + Post.like_count * 2 + Post.comment_count * 3).desc(), Post.created_at.desc())
             .limit(5)
+        )
         popular_result = await db.execute(popular_query)
         popular_posts = popular_result.scalars().all()
 
-        # 确保关系已加载
+        featured_query = (
+            select(Post)
+            .options(selectinload(Post.author), selectinload(Post.category), selectinload(Post.tags))
+            .where(Post.published == True, Post.is_featured == True)
+            .order_by(Post.published_at.desc().nullslast(), Post.created_at.desc())
+            .limit(3)
+        )
+        featured_result = await db.execute(featured_query)
+        featured_posts = featured_result.scalars().all()
+
         for post in popular_posts:
+            _ = post.author
+            _ = post.category
+            _ = post.tags
+        for post in featured_posts:
             _ = post.author
             _ = post.category
             _ = post.tags
 
         return {
-            "categories": categories,
-            "tags": tags,
-            "popular_posts": popular_posts
+            "categories": serialize_category_counts(categories),
+            "tags": serialize_tag_counts(tags),
+            "popular_posts": popular_posts,
+            "featured_posts": featured_posts,
         }
     except Exception as e:
         logger.error(f"Error fetching sidebar data: {e}")
-        return {"categories": [], "tags": [], "popular_posts": []}
+        return {"categories": [], "tags": [], "popular_posts": [], "featured_posts": []}
 
 
 async def get_related_posts(db: AsyncSession, post: Post, limit: int = 5):
@@ -334,10 +489,9 @@ async def index(
     posts_data = []
     total = 0
     total_pages = 0
-    sidebar_data = {"categories": [], "tags": [], "popular_posts": []}
+    sidebar_data = {"categories": [], "tags": [], "popular_posts": [], "featured_posts": []}
 
     try:
-        # 构建查询 - 预加载关系
         query = select(Post).options(
             selectinload(Post.author),
             selectinload(Post.category),
@@ -356,22 +510,7 @@ async def index(
         }
         query = query.order_by(order_mapping[sort])
 
-        # 计算总数
-        count_query = select(func.count()).select_from(
-            select(Post).where(Post.published == True).subquery()
-        )
-        if category_id:
-            count_query = select(func.count()).select_from(
-                select(Post).where(
-                    and_(Post.published == True, Post.category_id == category_id)
-                ).subquery()
-            )
-        if tag_name:
-            count_query = select(func.count()).select_from(
-                select(Post).join(post_tag).join(Tag).where(
-                    and_(Post.published == True, Tag.name == tag_name)
-                ).subquery()
-            )
+        count_query = select(func.count()).select_from(query.order_by(None).subquery())
 
         total_result = await db.execute(count_query)
         total = total_result.scalar_one_or_none() or 0
@@ -382,8 +521,6 @@ async def index(
             result = await db.execute(query)
             posts_data = result.scalars().all()
             total_pages = math.ceil(total / per_page)
-
-            # 确保关系已加载
             for post in posts_data:
                 _ = post.author
                 _ = post.category
@@ -411,6 +548,7 @@ async def index(
             "categories": sidebar_data["categories"],
             "tags": sidebar_data["tags"],
             "popular_posts": sidebar_data["popular_posts"],
+            "featured_posts": sidebar_data["featured_posts"],
             "current_year": datetime.now().year,
             "user_is_authenticated": current_user is not None,
             "current_user": current_user
@@ -428,12 +566,15 @@ async def post_detail(
 ):
     """文章详情页"""
     try:
-        # 预加载所有关系
         query = select(Post).options(
             selectinload(Post.comments).selectinload(Comment.author),
+            selectinload(Post.comments).selectinload(Comment.likes),
+            selectinload(Post.comments).selectinload(Comment.replies).selectinload(Comment.author),
+            selectinload(Post.comments).selectinload(Comment.replies).selectinload(Comment.likes),
             selectinload(Post.tags),
             selectinload(Post.category),
-            selectinload(Post.author)
+            selectinload(Post.author),
+            selectinload(Post.likes),
         ).where(Post.slug == slug, Post.published == True)
 
         result = await db.execute(query)
@@ -446,23 +587,59 @@ async def post_detail(
                 status_code=404
             )
 
-        # 确保关系已加载
         _ = post.author
         _ = post.category
         _ = post.tags
         _ = post.comments
+        visible_comments = [
+            comment for comment in post.comments
+            if comment.parent_id is None and comment.moderation_status == COMMENT_STATUS_APPROVED
+        ]
+        for comment in visible_comments:
+            comment.replies = [
+                reply for reply in comment.replies if reply.moderation_status == COMMENT_STATUS_APPROVED
+            ]
 
         await update_post_views(db, post)
         related_posts = await get_related_posts(db, post)
         stats = await get_post_stats(db, post)
+        liked_post_ids: set[int] = set()
+        liked_comment_ids: set[int] = set()
+
+        if current_user:
+            liked_post_result = await db.execute(
+                select(PostLike.post_id).where(PostLike.user_id == current_user.id, PostLike.post_id == post.id)
+            )
+            liked_post_ids = set(liked_post_result.scalars().all())
+
+            comment_ids = [comment.id for comment in visible_comments]
+            reply_ids = [reply.id for comment in visible_comments for reply in comment.replies]
+            all_comment_ids = comment_ids + reply_ids
+            if all_comment_ids:
+                from app.models.like import CommentLike
+
+                liked_comment_result = await db.execute(
+                    select(CommentLike.comment_id).where(
+                        CommentLike.user_id == current_user.id,
+                        CommentLike.comment_id.in_(all_comment_ids),
+                    )
+                )
+                liked_comment_ids = set(liked_comment_result.scalars().all())
+
+        for comment in visible_comments:
+            comment.is_liked = comment.id in liked_comment_ids
+            for reply in comment.replies:
+                reply.is_liked = reply.id in liked_comment_ids
 
         return templates.TemplateResponse(
             "post.html",
             {
                 "request": request,
                 "post": post,
+                "comments": visible_comments,
                 "related_posts": related_posts,
                 "stats": stats,
+                "post_is_liked": post.id in liked_post_ids,
                 "current_year": datetime.now().year,
                 "user_is_authenticated": current_user is not None,
                 "current_user": current_user
@@ -473,10 +650,92 @@ async def post_detail(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+def _can_access_draft_preview(post: Post, current_user: Optional[User]) -> bool:
+    if current_user is None:
+        return False
+    return current_user.is_superuser or current_user.id == post.author_id
+
+
+def _preview_token_matches_post(payload: dict[str, Any], post: Post) -> bool:
+    content_stamp = (post.updated_at or post.created_at or datetime.utcnow()).isoformat()
+    return (
+        payload.get("post_id") == post.id
+        and payload.get("author_id") == post.author_id
+        and payload.get("content_stamp") == content_stamp
+    )
+
+
+@app.get("/preview/posts/{post_id}", response_class=HTMLResponse, name="post_preview_page")
+async def post_preview_page(
+        request: Request,
+        post_id: int,
+        token: Optional[str] = None,
+        db: AsyncSession = Depends(get_db),
+        current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    result = await db.execute(
+        select(Post).options(
+            selectinload(Post.comments).selectinload(Comment.author),
+            selectinload(Post.comments).selectinload(Comment.likes),
+            selectinload(Post.comments).selectinload(Comment.replies).selectinload(Comment.author),
+            selectinload(Post.comments).selectinload(Comment.replies).selectinload(Comment.likes),
+            selectinload(Post.tags),
+            selectinload(Post.category),
+            selectinload(Post.author),
+            selectinload(Post.likes),
+        ).where(Post.id == post_id)
+    )
+    post = result.scalars().first()
+
+    if not post:
+        raise HTTPException(status_code=404, detail="文章未找到")
+
+    if post.published:
+        return RedirectResponse(url=f"/post/{post.slug}", status_code=status.HTTP_302_FOUND)
+
+    preview_expires_at: Optional[datetime] = None
+    has_access = _can_access_draft_preview(post, current_user)
+
+    if not has_access and token:
+        try:
+            payload = decode_post_preview_token(token)
+        except JWTError:
+            payload = None
+
+        if payload and _preview_token_matches_post(payload, post):
+            has_access = True
+            exp_value = payload.get("exp")
+            if isinstance(exp_value, (int, float)):
+                preview_expires_at = datetime.fromtimestamp(exp_value)
+
+    if not has_access:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="该预览链接无效或已过期")
+
+    stats = await get_post_stats(db, post)
+    related_posts = await get_related_posts(db, post)
+
+    return templates.TemplateResponse(
+        "post.html",
+        {
+            "request": request,
+            "post": post,
+            "comments": [],
+            "related_posts": related_posts,
+            "stats": stats,
+            "post_is_liked": False,
+            "preview_mode": True,
+            "preview_expires_at": preview_expires_at,
+            "current_year": datetime.now().year,
+            "user_is_authenticated": current_user is not None,
+            "current_user": current_user,
+        }
+    )
+
+
 async def get_post_stats(db: AsyncSession, post: Post) -> dict:
     # ... (您的原有逻辑) ...
     comment_count_result = await db.execute(
-        select(func.count(Comment.id)).where(Comment.post_id == post.id)
+        select(func.count(Comment.id)).where(Comment.post_id == post.id, Comment.moderation_status == COMMENT_STATUS_APPROVED)
     )
     word_count = len(post.content.split())  # 更准确的词数
     read_time = max(1, math.ceil(word_count / 200))  # 每分钟200词
@@ -485,6 +744,24 @@ async def get_post_stats(db: AsyncSession, post: Post) -> dict:
         "comment_count": comment_count_result.scalar_one_or_none() or 0,
         "word_count": word_count,
         "read_time": read_time
+    }
+
+
+async def get_author_stats(db: AsyncSession, author_id: int) -> dict[str, int]:
+    result = await db.execute(
+        select(
+            func.count(Post.id),
+            func.coalesce(func.sum(Post.views), 0),
+            func.coalesce(func.sum(Post.like_count), 0),
+            func.coalesce(func.sum(Post.comment_count), 0),
+        ).where(Post.author_id == author_id, Post.published == True)
+    )
+    post_count, total_views, total_likes, total_comments = result.one()
+    return {
+        "post_count": post_count or 0,
+        "total_views": total_views or 0,
+        "total_likes": total_likes or 0,
+        "total_comments": total_comments or 0,
     }
 
 
@@ -527,6 +804,7 @@ async def dashboard(
             "current_user": current_user,
             **stats,
             "recent_posts": recent_posts,
+            "dashboard_section": "overview",
             "current_year": datetime.now().year
         }
     )
@@ -552,8 +830,34 @@ async def my_posts(
             "request": request,
             "posts": posts_data,
             "current_user": current_user,
+            "dashboard_section": "posts",
             "current_year": datetime.now().year
         }
+    )
+
+
+@app.get("/dashboard/analytics", response_class=HTMLResponse, name="dashboard_analytics_page")
+async def dashboard_analytics_page(
+        request: Request,
+        current_user: User = Depends(get_dashboard_user),
+):
+    if isinstance(current_user, RedirectResponse):
+        return current_user
+
+    async with async_session() as db:
+        stats = await get_user_dashboard_stats(db, current_user)
+        analytics = await get_user_analytics_snapshot(db, current_user)
+
+    return templates.TemplateResponse(
+        "dashboard/analytics.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            **stats,
+            **analytics,
+            "dashboard_section": "analytics",
+            "current_year": datetime.now().year,
+        },
     )
 
 
@@ -578,6 +882,7 @@ async def new_post_page(
             "categories": categories_data,
             "tags": tags_data,
             "current_user": current_user,
+            "dashboard_section": "new_post",
             "current_year": datetime.now().year
         }
     )
@@ -602,6 +907,115 @@ async def get_user_dashboard_stats(db: AsyncSession, user: User) -> dict:
     }
 
 
+def get_recent_month_labels(month_count: int = 6) -> list[str]:
+    now = datetime.now()
+    current_month_index = now.year * 12 + now.month - 1
+    labels = []
+    for offset in range(month_count - 1, -1, -1):
+        month_index = current_month_index - offset
+        year = month_index // 12
+        month = month_index % 12 + 1
+        labels.append(f"{year}-{month:02d}")
+    return labels
+
+
+async def get_user_analytics_snapshot(db: AsyncSession, user: User) -> dict[str, Any]:
+    posts_result = await db.execute(
+        select(Post).options(selectinload(Post.category)).where(Post.author_id == user.id).order_by(Post.created_at.desc())
+    )
+    posts = posts_result.scalars().all()
+    published_posts = [post for post in posts if post.published]
+
+    top_posts = sorted(
+        published_posts,
+        key=lambda post: (post.views, post.like_count, post.comment_count, post.created_at.timestamp()),
+        reverse=True,
+    )[:5]
+
+    month_labels = get_recent_month_labels()
+    month_counts = {label: 0 for label in month_labels}
+    for post in published_posts:
+        label = (post.published_at or post.created_at).strftime("%Y-%m")
+        if label in month_counts:
+            month_counts[label] += 1
+
+    monthly_data = [{"label": label, "count": count} for label, count in month_counts.items()]
+    max_month_count = max((item["count"] for item in monthly_data), default=0)
+    for item in monthly_data:
+        item["percent"] = 0 if max_month_count == 0 else int(item["count"] / max_month_count * 100)
+
+    category_counts: dict[str, int] = {}
+    for post in published_posts:
+        category_name = post.category.name if post.category else "未分类"
+        category_counts[category_name] = category_counts.get(category_name, 0) + 1
+
+    category_breakdown = [
+        {"name": name, "count": count}
+        for name, count in sorted(category_counts.items(), key=lambda item: (-item[1], item[0]))
+    ]
+    max_category_count = max((item["count"] for item in category_breakdown), default=0)
+    for item in category_breakdown:
+        item["percent"] = 0 if max_category_count == 0 else int(item["count"] / max_category_count * 100)
+
+    recent_comments_result = await db.execute(
+        select(Comment)
+        .join(Post)
+        .options(selectinload(Comment.author), selectinload(Comment.post))
+        .where(Post.author_id == user.id)
+        .order_by(Comment.created_at.desc())
+        .limit(8)
+    )
+    recent_comments = recent_comments_result.scalars().all()
+
+    published_count = len(published_posts)
+    return {
+        "top_posts": top_posts,
+        "monthly_data": monthly_data,
+        "category_breakdown": category_breakdown,
+        "recent_comments": recent_comments,
+        "average_views": round(sum(post.views for post in published_posts) / published_count, 1) if published_count else 0,
+        "average_likes": round(sum(post.like_count for post in published_posts) / published_count, 1) if published_count else 0,
+        "average_comments": round(sum(post.comment_count for post in published_posts) / published_count, 1) if published_count else 0,
+    }
+
+
+async def get_comment_dashboard_snapshot(db: AsyncSession, user: User, status_filter: str) -> dict[str, Any]:
+    total_query = select(func.count(Comment.id)).join(Post)
+    visible_query = select(func.count(Comment.id)).join(Post).where(Comment.moderation_status == COMMENT_STATUS_APPROVED)
+    pending_query = select(func.count(Comment.id)).join(Post).where(Comment.moderation_status == COMMENT_STATUS_PENDING)
+    hidden_query = select(func.count(Comment.id)).join(Post).where(Comment.moderation_status == COMMENT_STATUS_HIDDEN)
+
+    comments_query = (
+        select(Comment)
+        .join(Post)
+        .options(selectinload(Comment.author), selectinload(Comment.post))
+        .order_by(Comment.created_at.desc())
+        .limit(200)
+    )
+
+    if not user.is_superuser:
+        total_query = total_query.where(Post.author_id == user.id)
+        visible_query = visible_query.where(Post.author_id == user.id)
+        pending_query = pending_query.where(Post.author_id == user.id)
+        hidden_query = hidden_query.where(Post.author_id == user.id)
+        comments_query = comments_query.where(Post.author_id == user.id)
+
+    if status_filter == "visible":
+        comments_query = comments_query.where(Comment.moderation_status == COMMENT_STATUS_APPROVED)
+    elif status_filter == "pending":
+        comments_query = comments_query.where(Comment.moderation_status == COMMENT_STATUS_PENDING)
+    elif status_filter == "hidden":
+        comments_query = comments_query.where(Comment.moderation_status == COMMENT_STATUS_HIDDEN)
+
+    total = (await db.execute(total_query)).scalar_one_or_none() or 0
+    visible = (await db.execute(visible_query)).scalar_one_or_none() or 0
+    pending = (await db.execute(pending_query)).scalar_one_or_none() or 0
+    hidden = (await db.execute(hidden_query)).scalar_one_or_none() or 0
+    comments = (await db.execute(comments_query)).scalars().all()
+
+    return {"total": total, "visible": visible, "pending": pending, "hidden": hidden, "comments": comments}
+
+
 @app.get("/search", response_class=HTMLResponse)
 async def search(
         request: Request,
@@ -612,14 +1026,13 @@ async def search(
         db: AsyncSession = Depends(get_db),
         current_user: Optional[User] = Depends(get_current_user_optional)  # 可选认证
 ):
-    # ... (您的原有搜索逻辑) ...
-    # 确保在模板中传递 current_user 和 user_is_authenticated
     posts_data = []
     total = 0
-    # ... (您的原有查询逻辑) ...
-    # 确保 posts_data 和 total 被正确赋值
+    total_pages = 0
+    per_page = settings.DEFAULT_PAGE_SIZE
+    sidebar_data = await get_sidebar_data(db)
+
     if q or category or tag:
-        # ... (您的查询逻辑) ...
         query = select(Post).options(
             selectinload(Post.author),
             selectinload(Post.category),
@@ -628,30 +1041,24 @@ async def search(
 
         if q:
             search_term = f"%{q}%"
-            query = query.where(or_(Post.title.ilike(search_term), Post.content.ilike(search_term)))
+            query = query.where(
+                or_(Post.title.ilike(search_term), Post.content.ilike(search_term), Post.summary.ilike(search_term))
+            )
         if category:
             query = query.join(Category).where(Category.name == category)
         if tag:
             query = query.join(post_tag).join(Tag).where(Tag.name == tag)
 
-        count_query = select(func.count()).select_from(query.correlate(None).subquery())
+        count_query = select(func.count()).select_from(query.order_by(None).subquery())
         total_result = await db.execute(count_query)
         total = total_result.scalar_one_or_none() or 0
 
         if total > 0:
-            per_page = settings.DEFAULT_PAGE_SIZE
             offset = (page - 1) * per_page
             query = query.offset(offset).limit(per_page)
             result = await db.execute(query)
             posts_data = result.scalars().all()
             total_pages = math.ceil(total / per_page)
-
-    popular_tags_data = []  # 获取热门标签和分类数据 (如果需要显示在空搜索结果页)
-    categories_data_list = []
-    if not (q or category or tag or posts_data):  # 如果没有搜索条件且没有结果
-        sidebar_data_for_search = await get_sidebar_data(db)
-        popular_tags_data = sidebar_data_for_search["tags"]  # 假设 get_sidebar_data 返回热门标签
-        categories_data_list = sidebar_data_for_search["categories"]  # 假设 get_sidebar_data 返回分类
 
     return templates.TemplateResponse(
         "search.html",
@@ -663,13 +1070,354 @@ async def search(
             "tag": tag,
             "page": page,
             "total": total,
+            "total_pages": total_pages,
+            "per_page": per_page,
+            "has_next": page < total_pages if total_pages else False,
+            "has_prev": page > 1,
             "current_year": datetime.now().year,
             "user_is_authenticated": current_user is not None,
             "current_user": current_user,
-            "popular_tags": popular_tags_data,  # 传递热门标签
-            "categories": categories_data_list  # 传递分类
+            "popular_tags": sidebar_data["tags"],
+            "categories": sidebar_data["categories"],
+            "popular_posts": sidebar_data["popular_posts"],
         }
     )
+
+
+@app.get("/categories/{slug}", response_class=HTMLResponse, name="category_page")
+async def category_page(
+        request: Request,
+        slug: str,
+        page: int = Query(1, ge=1),
+        per_page: int = Query(settings.DEFAULT_PAGE_SIZE, le=settings.MAX_PAGE_SIZE),
+        db: AsyncSession = Depends(get_db),
+        current_user: Optional[User] = Depends(get_current_user_optional),
+):
+    category_result = await db.execute(select(Category).where(Category.slug == slug, Category.is_active == True))
+    category = category_result.scalars().first()
+    if not category:
+        fallback_categories = (
+            await db.execute(select(Category).where(Category.slug.is_(None), Category.is_active == True))
+        ).scalars().all()
+        for candidate in fallback_categories:
+            if await ensure_category_slug(db, candidate) == slug:
+                category = candidate
+                await db.commit()
+                break
+    if not category:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分类不存在")
+
+    query = (
+        select(Post)
+        .options(selectinload(Post.author), selectinload(Post.category), selectinload(Post.tags))
+        .where(Post.published == True, Post.category_id == category.id)
+        .order_by(Post.published_at.desc().nullslast(), Post.created_at.desc())
+    )
+    count_query = select(func.count()).select_from(query.order_by(None).subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one_or_none() or 0
+    total_pages = math.ceil(total / per_page) if total else 0
+
+    posts_data = []
+    if total:
+        result = await db.execute(query.offset((page - 1) * per_page).limit(per_page))
+        posts_data = result.scalars().all()
+
+    sidebar_data = await get_sidebar_data(db)
+
+    return templates.TemplateResponse(
+        "taxonomy.html",
+        {
+            "request": request,
+            "topic_type": "分类",
+            "topic_name": category.name,
+            "topic_slug": category.slug,
+            "topic_description": category.description or "按一条更清晰的主题线索把相关文章整理在一起。",
+            "topic_badge": "Category",
+            "posts": posts_data,
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+            "total_pages": total_pages,
+            "has_next": page < total_pages if total_pages else False,
+            "has_prev": page > 1,
+            "categories": sidebar_data["categories"],
+            "tags": sidebar_data["tags"],
+            "popular_posts": sidebar_data["popular_posts"],
+            "current_user": current_user,
+            "user_is_authenticated": current_user is not None,
+            "current_year": datetime.now().year,
+        },
+    )
+
+
+@app.get("/tags/{slug}", response_class=HTMLResponse, name="tag_page")
+async def tag_page(
+        request: Request,
+        slug: str,
+        page: int = Query(1, ge=1),
+        per_page: int = Query(settings.DEFAULT_PAGE_SIZE, le=settings.MAX_PAGE_SIZE),
+        db: AsyncSession = Depends(get_db),
+        current_user: Optional[User] = Depends(get_current_user_optional),
+):
+    tag_result = await db.execute(select(Tag).where(Tag.slug == slug))
+    tag = tag_result.scalars().first()
+    if not tag:
+        fallback_tags = (await db.execute(select(Tag).where(Tag.slug.is_(None)))).scalars().all()
+        for candidate in fallback_tags:
+            if await ensure_tag_slug(db, candidate) == slug:
+                tag = candidate
+                await db.commit()
+                break
+    if not tag:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="标签不存在")
+
+    query = (
+        select(Post)
+        .options(selectinload(Post.author), selectinload(Post.category), selectinload(Post.tags))
+        .join(post_tag, Post.id == post_tag.c.post_id)
+        .where(Post.published == True, post_tag.c.tag_id == tag.id)
+        .order_by(Post.published_at.desc().nullslast(), Post.created_at.desc())
+    )
+    count_query = select(func.count()).select_from(query.order_by(None).subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one_or_none() or 0
+    total_pages = math.ceil(total / per_page) if total else 0
+
+    posts_data = []
+    if total:
+        result = await db.execute(query.offset((page - 1) * per_page).limit(per_page))
+        posts_data = result.scalars().unique().all()
+
+    sidebar_data = await get_sidebar_data(db)
+
+    return templates.TemplateResponse(
+        "taxonomy.html",
+        {
+            "request": request,
+            "topic_type": "标签",
+            "topic_name": tag.name,
+            "topic_slug": tag.slug,
+            "topic_description": f"围绕 #{tag.name} 的公开文章集合，适合顺着一个技术主题继续深入。",
+            "topic_badge": "Tag",
+            "posts": posts_data,
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+            "total_pages": total_pages,
+            "has_next": page < total_pages if total_pages else False,
+            "has_prev": page > 1,
+            "categories": sidebar_data["categories"],
+            "tags": sidebar_data["tags"],
+            "popular_posts": sidebar_data["popular_posts"],
+            "current_user": current_user,
+            "user_is_authenticated": current_user is not None,
+            "current_year": datetime.now().year,
+        },
+    )
+
+
+@app.get("/archive", response_class=HTMLResponse)
+async def archive_page(
+        request: Request,
+        db: AsyncSession = Depends(get_db),
+        current_user: Optional[User] = Depends(get_current_user_optional),
+):
+    result = await db.execute(
+        select(Post)
+        .options(selectinload(Post.author), selectinload(Post.category), selectinload(Post.tags))
+        .where(Post.published == True)
+        .order_by(Post.published_at.desc().nullslast(), Post.created_at.desc())
+    )
+    posts_data = result.scalars().all()
+
+    archive_groups: dict[str, dict[str, Any]] = {}
+    for post in posts_data:
+        dt = post.published_at or post.created_at
+        group_key = dt.strftime("%Y-%m")
+        if group_key not in archive_groups:
+            archive_groups[group_key] = {
+                "label": dt.strftime("%Y 年 %m 月"),
+                "count": 0,
+                "posts": [],
+            }
+        archive_groups[group_key]["count"] += 1
+        archive_groups[group_key]["posts"].append(post)
+
+    sidebar_data = await get_sidebar_data(db)
+
+    return templates.TemplateResponse(
+        "archive.html",
+        {
+            "request": request,
+            "archive_groups": list(archive_groups.values()),
+            "categories": sidebar_data["categories"],
+            "tags": sidebar_data["tags"],
+            "popular_posts": sidebar_data["popular_posts"],
+            "current_user": current_user,
+            "user_is_authenticated": current_user is not None,
+            "current_year": datetime.now().year,
+        },
+    )
+
+
+@app.get("/rss.xml", include_in_schema=False)
+async def rss_feed(db: AsyncSession = Depends(get_db)) -> Response:
+    result = await db.execute(
+        select(Post)
+        .options(selectinload(Post.author), selectinload(Post.category))
+        .where(Post.published == True)
+        .order_by(Post.published_at.desc().nullslast(), Post.created_at.desc())
+        .limit(20)
+    )
+    posts_data = result.scalars().all()
+    items = []
+    for post in posts_data:
+        published_at = post.published_at or post.created_at
+        items.append(
+            f"""
+            <item>
+                <title>{xml_escape(post.title)}</title>
+                <link>{xml_escape(build_absolute_url(f"/post/{post.slug}"))}</link>
+                <guid>{xml_escape(build_absolute_url(f"/post/{post.slug}"))}</guid>
+                <description>{xml_escape(excerpt_filter(post.summary or post.content, 240))}</description>
+                <pubDate>{published_at.strftime("%a, %d %b %Y %H:%M:%S +0000")}</pubDate>
+            </item>
+            """.strip()
+        )
+
+    rss_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>{xml_escape(settings.PROJECT_NAME)}</title>
+    <link>{xml_escape(settings.APP_BASE_URL)}</link>
+    <description>Async Blog 最新发布内容</description>
+    <language>zh-cn</language>
+    {' '.join(items)}
+  </channel>
+</rss>
+"""
+    return Response(content=rss_content, media_type="application/rss+xml; charset=utf-8")
+
+
+@app.get("/authors/{username}", response_class=HTMLResponse, name="author_page")
+async def author_page(
+        request: Request,
+        username: str,
+        page: int = Query(1, ge=1),
+        per_page: int = Query(settings.DEFAULT_PAGE_SIZE, le=settings.MAX_PAGE_SIZE),
+        db: AsyncSession = Depends(get_db),
+        current_user: Optional[User] = Depends(get_current_user_optional),
+):
+    author_result = await db.execute(select(User).where(User.username == username, User.is_active == True))
+    author = author_result.scalars().first()
+    if not author:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="作者不存在")
+
+    query = (
+        select(Post)
+        .options(selectinload(Post.author), selectinload(Post.category), selectinload(Post.tags))
+        .where(Post.author_id == author.id, Post.published == True)
+        .order_by(Post.published_at.desc().nullslast(), Post.created_at.desc())
+    )
+    count_query = select(func.count()).select_from(query.order_by(None).subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one_or_none() or 0
+    total_pages = math.ceil(total / per_page) if total else 0
+
+    posts_data = []
+    if total:
+        result = await db.execute(query.offset((page - 1) * per_page).limit(per_page))
+        posts_data = result.scalars().all()
+
+    stats = await get_author_stats(db, author.id)
+    sidebar_data = await get_sidebar_data(db)
+
+    return templates.TemplateResponse(
+        "author.html",
+        {
+            "request": request,
+            "author": author,
+            "posts": posts_data,
+            "stats": stats,
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+            "total_pages": total_pages,
+            "has_next": page < total_pages if total_pages else False,
+            "has_prev": page > 1,
+            "can_edit_profile": current_user is not None and current_user.id == author.id,
+            "categories": sidebar_data["categories"],
+            "tags": sidebar_data["tags"],
+            "popular_posts": sidebar_data["popular_posts"],
+            "current_user": current_user,
+            "user_is_authenticated": current_user is not None,
+            "current_year": datetime.now().year,
+        },
+    )
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+async def sitemap_xml(db: AsyncSession = Depends(get_db)) -> Response:
+    now = datetime.utcnow()
+    static_urls = [
+        ("/", now),
+        ("/archive", now),
+        ("/search", now),
+        ("/about", now),
+        ("/contact", now),
+        ("/privacy", now),
+    ]
+
+    post_result = await db.execute(
+        select(Post.slug, Post.updated_at).where(Post.published == True).order_by(Post.updated_at.desc()).limit(500)
+    )
+    category_result = await db.execute(select(Category).where(Category.is_active == True))
+    tag_result = await db.execute(select(Tag))
+    author_result = await db.execute(select(User.username, User.updated_at).where(User.is_active == True))
+    slugs_updated = False
+
+    entries = [
+        f"<url><loc>{xml_escape(build_absolute_url(path))}</loc><lastmod>{updated_at.date().isoformat()}</lastmod></url>"
+        for path, updated_at in static_urls
+    ]
+    entries.extend(
+        f"<url><loc>{xml_escape(build_absolute_url(f'/post/{slug}'))}</loc><lastmod>{updated_at.date().isoformat()}</lastmod></url>"
+        for slug, updated_at in post_result.all()
+    )
+    category_entries = []
+    for category in category_result.scalars().all():
+        if not category.slug:
+            slugs_updated = True
+        slug = await ensure_category_slug(db, category)
+        category_entries.append(
+            f"<url><loc>{xml_escape(build_absolute_url(f'/categories/{slug}'))}</loc><lastmod>{category.updated_at.date().isoformat()}</lastmod></url>"
+        )
+    entries.extend(category_entries)
+
+    tag_entries = []
+    for tag in tag_result.scalars().all():
+        if not tag.slug:
+            slugs_updated = True
+        slug = await ensure_tag_slug(db, tag)
+        tag_entries.append(
+            f"<url><loc>{xml_escape(build_absolute_url(f'/tags/{slug}'))}</loc><lastmod>{tag.updated_at.date().isoformat()}</lastmod></url>"
+        )
+    entries.extend(tag_entries)
+    if slugs_updated:
+        await db.commit()
+    entries.extend(
+        f"<url><loc>{xml_escape(build_absolute_url(f'/authors/{username}'))}</loc><lastmod>{updated_at.date().isoformat()}</lastmod></url>"
+        for username, updated_at in author_result.all()
+    )
+
+    content = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f'  {" ".join(entries)}\n'
+        "</urlset>\n"
+    )
+    return Response(content=content, media_type="application/xml")
 
 
 async def create_admin_user():
@@ -756,6 +1504,7 @@ async def edit_post_page( # 函数名可以是 edit_post_page 或其他，重要
             "tags": tags_data,
             "current_post_tags_str": ",".join(current_post_tag_names),
             "current_user": current_user,
+            "dashboard_section": "posts",
             "current_year": datetime.now().year
         }
     )
@@ -777,6 +1526,7 @@ async def user_profile_page(
         {
             "request": request,
             "current_user": current_user, # 将当前用户信息传递给模板
+            "dashboard_section": "profile",
             "current_year": datetime.now().year
             # 您可以根据需要传递更多用户相关的统计信息或数据
         }
@@ -791,9 +1541,28 @@ async def user_profile_page(
 @app.get("/about", response_class=HTMLResponse)
 async def about_page(request: Request, current_user: Optional[User] = Depends(get_current_user_optional)):
     return templates.TemplateResponse(
-        "about.html",
+        "content_page.html",
         {
             "request": request,
+            "page_badge": "About",
+            "page_title": "把技术博客，做成一套更能持续运营的内容产品",
+            "page_lead": "Async Blog 现在不只是能启动，而是已经具备写作、阅读、归档、搜索和作者展示的一整套骨架。",
+            "page_sections": [
+                {
+                    "title": "从能跑，到更像产品",
+                    "body": "这次升级不仅修了模型和接口契约，也把首页层次、文章详情、仪表盘、归档、RSS、作者信息和公共浏览入口一起打磨，让整站更完整。",
+                },
+                {
+                    "title": "适合长期写作",
+                    "body": "如果你在写 FastAPI、异步编程、工程实践或系列教程，分类页、标签页、作者页和搜索都会比单纯的文章列表更有组织感。",
+                },
+                {
+                    "title": "后续还能继续长",
+                    "body": "这套结构现在已经更适合继续加测试、加数据统计、加内容运营能力，而不是每次改一点就牵一大片。",
+                },
+            ],
+            "page_aside_title": "现在已经具备",
+            "page_aside_items": ["精选文章", "归档页", "RSS 订阅", "作者主页", "分类页与标签页", "评论回复与点赞"],
             "current_user": current_user,
             "user_is_authenticated": current_user is not None,
             "current_year": datetime.now().year,
@@ -803,10 +1572,30 @@ async def about_page(request: Request, current_user: Optional[User] = Depends(ge
 
 @app.get("/contact", response_class=HTMLResponse)
 async def contact_page(request: Request, current_user: Optional[User] = Depends(get_current_user_optional)):
+    contact_email = settings.MAIL_FROM or settings.ADMIN_EMAIL
     return templates.TemplateResponse(
-        "contact.html",
+        "content_page.html",
         {
             "request": request,
+            "page_badge": "Contact",
+            "page_title": "想反馈问题、提新功能，或者一起把它继续做强",
+            "page_lead": "如果你在使用过程中发现页面细节、交互路径或内容组织还有提升空间，欢迎继续提需求。",
+            "page_sections": [
+                {
+                    "title": "反馈什么最有帮助",
+                    "body": "最有效的反馈通常包含页面位置、复现步骤、你期待的行为，以及这是视觉问题、功能问题还是数据问题。",
+                },
+                {
+                    "title": "适合讨论的话题",
+                    "body": "包括写作后台体验、评论交互、搜索与归档、SEO 与 RSS、分类和标签组织方式，或者任何你觉得博客系统还可以再进化的方向。",
+                },
+                {
+                    "title": "联系邮箱",
+                    "body": f"当前默认联系邮箱是 {contact_email}。接入真实团队邮箱后，也可以直接把这里替换成正式联系渠道。",
+                },
+            ],
+            "page_aside_title": "推荐附带的信息",
+            "page_aside_items": ["问题页面", "浏览器或设备", "是否登录", "报错信息", "你想要的改进效果"],
             "current_user": current_user,
             "user_is_authenticated": current_user is not None,
             "current_year": datetime.now().year,
@@ -817,9 +1606,28 @@ async def contact_page(request: Request, current_user: Optional[User] = Depends(
 @app.get("/privacy", response_class=HTMLResponse)
 async def privacy_page(request: Request, current_user: Optional[User] = Depends(get_current_user_optional)):
     return templates.TemplateResponse(
-        "privacy.html",
+        "content_page.html",
         {
             "request": request,
+            "page_badge": "Privacy",
+            "page_title": "这个博客系统会保存哪些信息，以及为什么需要这些信息",
+            "page_lead": "为了支持注册、登录、发文、评论和账号找回，系统会保存一部分必要的账户和内容数据。",
+            "page_sections": [
+                {
+                    "title": "账户信息",
+                    "body": "系统会保存用户名、邮箱和加密后的密码，以及你主动填写的简介、头像、网站和地区等资料，用于账号识别与公开展示。",
+                },
+                {
+                    "title": "内容与互动记录",
+                    "body": "文章、评论、点赞、归档和作者统计等数据会被保存，用于支撑前台展示、搜索、排序、后台管理和互动功能。",
+                },
+                {
+                    "title": "安全与会话",
+                    "body": "登录态由访问令牌维持，密码找回和邮箱验证会使用一次性令牌。生产环境建议配置稳定密钥、正式邮件服务和真实基础设施。",
+                },
+            ],
+            "page_aside_title": "当前默认保护措施",
+            "page_aside_items": ["密码只存哈希", "支持退出登录", "支持密码重置", "支持邮箱验证", "删除内容时会同步回收计数"],
             "current_user": current_user,
             "user_is_authenticated": current_user is not None,
             "current_year": datetime.now().year,
@@ -884,12 +1692,15 @@ async def dashboard_categories_page(
 ):
     if isinstance(current_user, RedirectResponse):
         return current_user
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="需要管理员权限")
 
     return templates.TemplateResponse(
         "dashboard/categories_manage.html",
         {
             "request": request,
             "current_user": current_user,
+            "dashboard_section": "categories",
             "current_year": datetime.now().year,
         },
     )
@@ -902,12 +1713,15 @@ async def dashboard_tags_page(
 ):
     if isinstance(current_user, RedirectResponse):
         return current_user
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="需要管理员权限")
 
     return templates.TemplateResponse(
         "dashboard/tags_manage.html",
         {
             "request": request,
             "current_user": current_user,
+            "dashboard_section": "tags",
             "current_year": datetime.now().year,
         },
     )
@@ -920,12 +1734,15 @@ async def dashboard_users_page(
 ):
     if isinstance(current_user, RedirectResponse):
         return current_user
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="需要管理员权限")
 
     return templates.TemplateResponse(
         "dashboard/users_manage.html",
         {
             "request": request,
             "current_user": current_user,
+            "dashboard_section": "users",
             "current_year": datetime.now().year,
         },
     )
@@ -945,6 +1762,38 @@ async def edit_user_profile_page(
         {
             "request": request,
             "current_user": current_user,
+            "dashboard_section": "profile",
             "current_year": datetime.now().year
         }
+    )
+
+
+@app.get("/dashboard/comments", response_class=HTMLResponse, name="dashboard_comments_page")
+async def dashboard_comments_page(
+        request: Request,
+        status_filter: str = Query("all", alias="status", pattern="^(all|pending|visible|hidden)$"),
+        current_user: User = Depends(get_dashboard_user),
+):
+    if isinstance(current_user, RedirectResponse):
+        return current_user
+
+    async with async_session() as db:
+        snapshot = await get_comment_dashboard_snapshot(db, current_user, status_filter)
+
+    return templates.TemplateResponse(
+        "dashboard/comments_manage.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "dashboard_section": "comments",
+            "status_filter": status_filter,
+            "comment_stats": {
+                "total": snapshot["total"],
+                "visible": snapshot["visible"],
+                "pending": snapshot["pending"],
+                "hidden": snapshot["hidden"],
+            },
+            "comments": snapshot["comments"],
+            "current_year": datetime.now().year,
+        },
     )

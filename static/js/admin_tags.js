@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('tag-form');
 
     async function loadTags() {
-        const res = await axios.get('/api/v1/tags/');
+        const res = await axios.get('/tags/');
         tbody.innerHTML = '';
         res.data.forEach(tag => {
             const row = document.createElement('tr');
@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', function () {
             e.preventDefault();
             const name = form.querySelector('[name="name"]').value;
             const description = form.querySelector('[name="description"]').value;
-            await axios.post('/api/v1/tags/', { name, description });
+            await axios.post('/tags/', { name, description });
             form.reset();
             loadTags();
         });

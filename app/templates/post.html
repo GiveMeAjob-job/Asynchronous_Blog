@@ -1,129 +1,237 @@
 {% extends "base.html" %}
 
 {% block title %}{{ post.title }} - Async Blog{% endblock %}
-
-{% block extra_css %}
-{# 这些 prism.css 和 markdown.css 可能需要调整以适应深色主题 #}
-{# 如果您的新 style.css 已经包含了代码高亮和 Markdown 样式，这些可能不再需要或需要替换 #}
-<link rel="stylesheet" href="{{ url_for('static', path='css/prism_dark.css') }}"> {# 假设您有一个深色主题的 prism.css #}
-<link rel="stylesheet" href="{{ url_for('static', path='css/markdown_dark.css') }}"> {# 假设您有深色主题的 markdown.css #}
-{% endblock %}
+{% block meta_description %}{{ post.meta_description or (post.summary or post.content)|excerpt(140) }}{% endblock %}
 
 {% block content %}
-<div class="row mt-section"> {# Bootstrap row/col-md-* 可以保留用于基本布局 #}
-    <div class="col-md-8">
-        {# 1. 移除 .blog-post, 应用新 CSS 的 .article-header, .article-title, .article-meta #}
-        <article>
+<section class="page-section">
+    <div class="article-shell">
+        <article class="article-panel">
             <header class="article-header">
-                <h1 class="article-title">{{ post.title }}</h1>
-                <p class="article-meta">
-                    <span>发布于 {{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</span> |
-                    <span>作者: <a href="/?author_id={{ post.author_id }}" class="text-primary">{{ post.author.username }}</a></span>
-                    {% if post.category %}
-                        | <span>分类: <a href="/?category_id={{ post.category.id }}" class="text-primary">{{ post.category.name }}</a></span>
+                {% if preview_mode %}
+                <div class="form-message warning preview-banner">
+                    <strong>草稿私密预览</strong>
+                    <p>这篇文章尚未公开发布，只有文章作者、管理员或持有有效预览链接的人可以查看。</p>
+                    {% if preview_expires_at %}
+                    <p>当前链接将在 {{ preview_expires_at.strftime('%Y-%m-%d %H:%M') }} 失效。</p>
                     {% endif %}
-                </p>
+                </div>
+                {% endif %}
+                <div class="article-header__meta">
+                    {% if post.category %}
+                    <a href="{{ url_for('category_page', slug=post.category.slug) }}" class="pill pill-accent">{{ post.category.name }}</a>
+                    {% endif %}
+                    <span>{{ (post.published_at or post.created_at).strftime('%Y-%m-%d %H:%M') }}</span>
+                    <span>{{ stats.read_time }} 分钟阅读</span>
+                    {% if preview_mode %}
+                    <span>预览模式</span>
+                    {% else %}
+                    <span>{{ post.views }} 浏览</span>
+                    {% endif %}
+                </div>
+
+                <h1 class="article-title">{{ post.title }}</h1>
+                <p class="article-summary">{{ post.summary or (post.content|excerpt(220)) }}</p>
+
+                <div class="article-author">
+                    <div class="article-author__avatar">
+                        {% if post.author.avatar_url %}
+                        <img src="{{ post.author.avatar_url }}" alt="{{ post.author.username }}">
+                        {% else %}
+                        <span>{{ (post.author.full_name or post.author.username)[0]|upper }}</span>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <strong><a href="{{ url_for('author_page', username=post.author.username) }}">{{ post.author.full_name or post.author.username }}</a></strong>
+                        <p>{{ post.author.bio or '热爱异步开发与清晰表达的作者。' }}</p>
+                    </div>
+                </div>
+
+                {% if post.tags %}
+                <div class="tag-cloud">
+                    {% for tag_item in post.tags %}
+                    <a href="{{ url_for('tag_page', slug=tag_item.slug) }}" class="tag">{{ tag_item.name }}</a>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </header>
 
-            {# 2. 标签: 移除 .badge .bg-secondary, 应用新 CSS 的 .tag-cloud 和 .tag #}
-            {% if post.tags %}
-            <div class="tag-cloud mb-4">
-                {% for tag_item in post.tags %} {# Renamed to tag_item to avoid conflict with new .tag class usage #}
-                    <a href="/?tag_name={{ tag_item.name }}" class="tag">{{ tag_item.name }}</a>
-                {% endfor %}
+            {% if post.featured_image %}
+            <div class="article-cover">
+                <img src="{{ post.featured_image }}" alt="{{ post.title }}">
             </div>
             {% endif %}
 
-            {# 3. Markdown 内容: 移除 .markdown-body, 应用新 CSS 的 .article-content #}
             <div class="article-content">
-                {{ post.content|markdown }} {# 确保 markdown 过滤器输出的 HTML 能被新 CSS 良好地样式化 #}
+                {{ post.content|markdown }}
             </div>
+
+            <footer class="article-footer">
+                <div class="article-stats">
+                    <span>{{ stats.word_count }} 词</span>
+                    <span>{{ stats.comment_count }} 评论</span>
+                    <span>{{ post.like_count }} 点赞</span>
+                </div>
+                <div class="article-actions">
+                    {% if not preview_mode %}
+                    <button
+                        type="button"
+                        class="btn {% if post_is_liked %}btn-primary{% else %}btn-secondary{% endif %}"
+                        id="post-like-button"
+                        data-post-id="{{ post.id }}"
+                        data-liked="{{ 'true' if post_is_liked else 'false' }}"
+                    >
+                        <span id="post-like-label">{% if post_is_liked %}已点赞{% else %}点赞文章{% endif %}</span>
+                        <span id="post-like-count">{{ post.like_count }}</span>
+                    </button>
+                    {% endif %}
+                    <button type="button" class="btn btn-ghost" id="share-post" data-share-url="{{ request.url }}">复制文章链接</button>
+                </div>
+            </footer>
         </article>
 
-        <hr class="my-5 form-divider"> {# 使用新CSS的 .form-divider 或自定义 <hr> 样式 #}
-
-        {# 4. 评论区: 应用新 CSS 的 .comments-section, .comment-form, .comment-item 等 #}
-        <section id="comments" class="comments-section">
-            <h3 class="section-title mb-4">评论 ({{ post.comments|length }})</h3>
-
-            {# 5. 评论表单: 移除 .card .mb-4, 应用新 CSS 的 .comment-form #}
-            <div id="comment-form" class="comment-form">
-                {# 移除了 .card-body, 直接在 .comment-form 内布局 #}
-                <div class="mb-3">
-                    <textarea id="comment-content" class="form-control" rows="4" placeholder="写下您的评论..." required></textarea>
-                </div>
-                {# 6. 按钮: 应用新 CSS 的 .btn .btn-primary #}
-                <button type="button" id="submit-comment" class="btn btn-primary" data-post-id="{{ post.id }}">提交评论</button>
-                {# 7. 错误提示: 移除 .alert .alert-danger, 使用自定义的 .form-message.error #}
-                <div id="comment-error" class="form-message error mt-3 d-none"></div>
-            </div>
-
-            <div id="comment-list">
-                {% if post.comments %}
-                    {% for comment in post.comments|sort(attribute='created_at', reverse=True) %}
-                        {# 8. 单条评论: 移除 .card .mb-3, 应用新 CSS 的 .comment-item #}
-                        <article class="comment-item">
-                            {# 可选: 如果新 CSS 定义了 .comment-avatar #}
-                            <div class="comment-avatar">
-                                {{ comment.author.username[0]|upper }}
-                            </div>
-                            <div class="comment-content">
-                                <h5 class="comment-author">{{ comment.author.username }}</h5>
-                                <p class="comment-date">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
-                                <p class="comment-text">{{ comment.content }}</p>
-                            </div>
-                        </article>
-                    {% endfor %}
-                {% else %}
-                    {# 9. "暂无评论"提示: 移除 .alert .alert-light, 使用自定义样式或简单文本 #}
-                    <div class="empty-state-message text-center py-4">
-                        <p class="text-muted">暂无评论，来写下第一条评论吧！</p>
-                    </div>
-                {% endif %}
-            </div>
-        </section>
-    </div>
-
-    <div class="col-md-4">
-        {# 10. 侧边栏卡片: 移除 Bootstrap .card, 应用新 CSS 的 .sidebar-card #}
-        <div class="position-sticky" style="top: calc(var(--navbar-height, 60px) + var(--spacing-lg));"> {# 假设 navbar 高度 #}
-            <aside class="sidebar-card mb-4">
-                <h4 class="sidebar-title">关于作者</h4>
-                <div class="text-center mb-3">
-                     {# 可选: 作者头像 #}
-                    <div class="comment-avatar" style="width: 80px; height: 80px; font-size: 2rem; margin: auto;">{{ post.author.username[0]|upper }}</div>
-                </div>
-                <h5 class="text-center mb-1">{{ post.author.username }}</h5>
-                <p class="text-muted text-center small">作者已发布 {{ post.author.posts|length }} 篇文章</p>
-                <a href="/?author_id={{ post.author_id }}" class="btn btn-outline-light w-100 mt-2">查看所有文章</a>
-            </aside>
-
-            <aside class="sidebar-card mb-4">
-                <h4 class="sidebar-title">相关文章</h4>
-                <div id="related-posts">
-                {% if related_posts %}
-                    {# 11. 移除 .list-group .list-group-flush .list-group-item #}
-                    <ul class="list-unstyled">
+        <aside class="sidebar-stack">
+            <section class="sidebar-card">
+                <p class="eyebrow">Related</p>
+                <h3 class="sidebar-title">相关文章</h3>
+                <div class="sidebar-posts">
                     {% for rel_post in related_posts %}
-                        <li class="category-item"> {# 可以复用 .category-item 的样式 #}
-                            <a href="/post/{{ rel_post.slug }}" class="category-link">
-                                {{ rel_post.title }}
-                            </a>
-                        </li>
+                    <a href="/post/{{ rel_post.slug }}" class="sidebar-post">
+                        <strong>{{ rel_post.title }}</strong>
+                        <span>{{ (rel_post.published_at or rel_post.created_at).strftime('%Y-%m-%d') }}</span>
+                    </a>
+                    {% else %}
+                    <p class="muted">暂时还没有相关文章。</p>
                     {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="text-center text-muted small">暂无相关文章</p>
-                {% endif %}
                 </div>
-            </aside>
-        </div>
+            </section>
+
+            <section class="sidebar-card">
+                <p class="eyebrow">Author</p>
+                <h3 class="sidebar-title">作者信息</h3>
+                <dl class="detail-list">
+                    <div><dt>作者</dt><dd>{{ post.author.full_name or post.author.username }}</dd></div>
+                    <div><dt>文章数</dt><dd>{{ post.author.post_count }}</dd></div>
+                    <div><dt>评论开放</dt><dd>{{ '是' if post.allow_comments else '否' }}</dd></div>
+                </dl>
+                <a href="{{ url_for('author_page', username=post.author.username) }}" class="btn btn-secondary btn-sm">查看作者主页</a>
+            </section>
+        </aside>
     </div>
-</div>
+
+    <section class="comments-panel">
+        <div class="section-heading section-heading--compact">
+            <div>
+                <p class="eyebrow">Discussion</p>
+                <h2>评论区</h2>
+            </div>
+            <span class="comments-count">{{ stats.comment_count }} 条</span>
+        </div>
+
+        {% if preview_mode %}
+        <div class="empty-state">
+            <h3>草稿预览不开放评论</h3>
+            <p>你可以先确认版式、内容和结构，正式发布后再开放互动与点赞。</p>
+        </div>
+        {% else %}
+        <div class="comment-editor">
+            <textarea id="comment-content" class="form-control" rows="4" placeholder="写下你的想法，也欢迎提出不同观点。"></textarea>
+            <div class="comment-editor__actions">
+                <span class="muted">普通用户评论提交后会先进入审核</span>
+                <button type="button" id="submit-comment" class="btn btn-primary" data-post-id="{{ post.id }}">提交评论</button>
+            </div>
+            <div id="comment-error" class="form-message error d-none"></div>
+            <div id="comment-feedback" class="form-message warning d-none"></div>
+        </div>
+
+        <div id="comment-list" class="comment-list" data-post-author-id="{{ post.author_id }}">
+            {% set top_level_comments = comments | sort(attribute='created_at', reverse=true) | list %}
+            {% if top_level_comments %}
+                {% for comment in top_level_comments %}
+                <article class="comment-card" data-comment-id="{{ comment.id }}">
+                    <div class="comment-card__avatar">{{ (comment.author.full_name or comment.author.username)[0]|upper }}</div>
+                    <div class="comment-card__body">
+                        <div class="comment-card__header">
+                            <strong>{{ comment.author.full_name or comment.author.username }}</strong>
+                            <span>{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}{% if comment.is_edited %} · 已编辑{% endif %}</span>
+                        </div>
+                        <p class="comment-card__text">{{ comment.content }}</p>
+                        <div class="comment-card__actions">
+                            <button class="link-button reply-trigger" type="button" data-parent-id="{{ comment.id }}">回复</button>
+                            <button class="link-button comment-like-button" type="button" data-comment-id="{{ comment.id }}" data-liked="{{ 'true' if comment.is_liked else 'false' }}">
+                                {% if comment.is_liked %}已点赞{% else %}点赞{% endif %} · <span>{{ comment.like_count }}</span>
+                            </button>
+                            {% if current_user and (current_user.id == comment.author_id or current_user.is_superuser) %}
+                            <button class="link-button comment-edit-trigger" type="button" data-comment-id="{{ comment.id }}">编辑</button>
+                            {% endif %}
+                            {% if current_user and (current_user.id == comment.author_id or current_user.is_superuser or current_user.id == post.author_id) %}
+                            <button class="link-button comment-delete-button" type="button" data-comment-id="{{ comment.id }}">删除</button>
+                            {% endif %}
+                        </div>
+                        <div class="reply-form d-none comment-edit-form" id="edit-form-{{ comment.id }}">
+                            <textarea class="form-control edit-comment-content" rows="3">{{ comment.content }}</textarea>
+                            <div class="reply-form__actions">
+                                <button type="button" class="btn btn-secondary btn-sm cancel-comment-edit" data-comment-id="{{ comment.id }}">取消</button>
+                                <button type="button" class="btn btn-primary btn-sm submit-comment-edit" data-comment-id="{{ comment.id }}">保存修改</button>
+                            </div>
+                        </div>
+                        <div class="reply-form d-none" id="reply-form-{{ comment.id }}">
+                            <textarea class="form-control reply-content" rows="3" placeholder="回复这条评论..."></textarea>
+                            <div class="reply-form__actions">
+                                <button type="button" class="btn btn-secondary btn-sm cancel-reply" data-parent-id="{{ comment.id }}">取消</button>
+                                <button type="button" class="btn btn-primary btn-sm submit-reply" data-post-id="{{ post.id }}" data-parent-id="{{ comment.id }}">提交回复</button>
+                            </div>
+                        </div>
+
+                        {% if comment.replies %}
+                        <div class="reply-list">
+                            {% for reply in comment.replies | sort(attribute='created_at') %}
+                            <article class="comment-card comment-card--reply" data-comment-id="{{ reply.id }}">
+                                <div class="comment-card__avatar">{{ (reply.author.full_name or reply.author.username)[0]|upper }}</div>
+                                <div class="comment-card__body">
+                                    <div class="comment-card__header">
+                                        <strong>{{ reply.author.full_name or reply.author.username }}</strong>
+                                        <span>{{ reply.created_at.strftime('%Y-%m-%d %H:%M') }}{% if reply.is_edited %} · 已编辑{% endif %}</span>
+                                    </div>
+                                    <p class="comment-card__text">{{ reply.content }}</p>
+                                    <div class="comment-card__actions">
+                                        <button class="link-button comment-like-button" type="button" data-comment-id="{{ reply.id }}" data-liked="{{ 'true' if reply.is_liked else 'false' }}">
+                                            {% if reply.is_liked %}已点赞{% else %}点赞{% endif %} · <span>{{ reply.like_count }}</span>
+                                        </button>
+                                        {% if current_user and (current_user.id == reply.author_id or current_user.is_superuser) %}
+                                        <button class="link-button comment-edit-trigger" type="button" data-comment-id="{{ reply.id }}">编辑</button>
+                                        {% endif %}
+                                        {% if current_user and (current_user.id == reply.author_id or current_user.is_superuser or current_user.id == post.author_id) %}
+                                        <button class="link-button comment-delete-button" type="button" data-comment-id="{{ reply.id }}">删除</button>
+                                        {% endif %}
+                                    </div>
+                                    <div class="reply-form d-none comment-edit-form" id="edit-form-{{ reply.id }}">
+                                        <textarea class="form-control edit-comment-content" rows="3">{{ reply.content }}</textarea>
+                                        <div class="reply-form__actions">
+                                            <button type="button" class="btn btn-secondary btn-sm cancel-comment-edit" data-comment-id="{{ reply.id }}">取消</button>
+                                            <button type="button" class="btn btn-primary btn-sm submit-comment-edit" data-comment-id="{{ reply.id }}">保存修改</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </article>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </article>
+                {% endfor %}
+            {% else %}
+            <div class="empty-state">
+                <h3>还没有评论</h3>
+                <p>第一条评论，往往决定这里的气氛。</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </section>
+</section>
 {% endblock %}
 
 {% block extra_js %}
-{# 确保 prism.js 与您的深色主题 prism_dark.css 兼容 #}
-<script src="{{ url_for('static', path='js/prism.js') }}"></script>
-<script src="{{ url_for('static', path='js/post.js') }}"></script>
+<script src="{{ static_asset(request, 'js/post.js') }}"></script>
 {% endblock %}

@@ -2,105 +2,200 @@
 
 {% block title %}Async Blog - 首页{% endblock %}
 
-{# 可选: 如果首页有独特的 Hero Section 内容 #}
 {% block hero_section %}
-<section class="hero-section">
-    <div class="hero-content container">
-        <h1 class="hero-title fade-in">Async Blog</h1>
-        <p class="hero-subtitle fade-in" style="animation-delay: 0.2s;">探索异步编程、FastAPI 及更多技术内容。</p>
-        <a href="#latest-posts" class="btn btn-primary fade-in" style="animation-delay: 0.4s;">查看最新文章</a>
+{% set spotlight_post = featured_posts[0] if featured_posts else (posts[0] if posts else (popular_posts[0] if popular_posts else None)) %}
+<section class="hero">
+    <div class="container hero__inner">
+        <div class="hero__copy">
+            <p class="eyebrow">Readable engineering</p>
+            <h1 class="hero__title">把异步开发写得更清楚，也把博客系统做得更像产品。</h1>
+            <p class="hero__subtitle">这里聚焦 FastAPI、异步编程、工程实践和真正能落地的开发经验。</p>
+            <div class="hero__actions">
+                <a href="#latest-posts" class="btn btn-primary">开始阅读</a>
+                <a href="/archive" class="btn btn-ghost">查看归档</a>
+            </div>
+            <div class="hero__highlights">
+                <span class="pill pill-accent">FastAPI 实战</span>
+                <span class="pill">异步工程</span>
+                <span class="pill">博客产品化</span>
+            </div>
+        </div>
+
+        <div class="hero__panel">
+            {% if spotlight_post %}
+            <article class="hero-spotlight">
+                <p class="eyebrow">Spotlight</p>
+                <h2 class="hero-spotlight__title">{{ spotlight_post.title }}</h2>
+                <p class="hero-spotlight__summary">{{ (spotlight_post.summary or spotlight_post.content)|excerpt(140) }}</p>
+                <div class="hero-spotlight__meta">
+                    <span>{{ (spotlight_post.published_at or spotlight_post.created_at).strftime('%Y-%m-%d') }}</span>
+                    <span>{{ spotlight_post.views }} 浏览</span>
+                    <span>{{ spotlight_post.comment_count }} 评论</span>
+                </div>
+                <a href="/post/{{ spotlight_post.slug }}" class="btn btn-outline-light">先读这篇</a>
+            </article>
+            {% else %}
+            <article class="hero-spotlight hero-spotlight--empty">
+                <p class="eyebrow">Spotlight</p>
+                <h2 class="hero-spotlight__title">第一篇文章，会决定这个站点的气质。</h2>
+                <p class="hero-spotlight__summary">等内容积累起来后，这里会展示最值得先读的一篇，给第一次进入博客的人一个清晰入口。</p>
+            </article>
+            {% endif %}
+
+            <div class="hero-stats-grid">
+                <div class="hero-stat">
+                    <span class="hero-stat__label">文章总数</span>
+                    <strong>{{ total }}</strong>
+                </div>
+                <div class="hero-stat">
+                    <span class="hero-stat__label">热门标签</span>
+                    <strong>{{ tags|length }}</strong>
+                </div>
+                <div class="hero-stat">
+                    <span class="hero-stat__label">活跃分类</span>
+                    <strong>{{ categories|length }}</strong>
+                </div>
+            </div>
+        </div>
     </div>
 </section>
 {% endblock hero_section %}
 
-
 {% block content %}
-<div class="row mt-section" id="latest-posts"> {# 使用新CSS的间距类，并添加ID以便锚点跳转 #}
-    <div class="col-md-8"> {# Bootstrap 栅格可以保留用于整体布局 #}
-        <h2 class="mb-4 section-title">最新文章</h2> {# 可以定义一个 .section-title 类 #}
+<section class="page-section" id="latest-posts">
+    <div class="home-quick-grid">
+        <a href="/archive" class="quick-card">
+            <p class="eyebrow">Archive</p>
+            <h3 class="quick-card__title">按时间线逛完整内容</h3>
+            <p class="quick-card__body">适合想快速把全部文章、发布时间和演进节奏一次看清的人。</p>
+            <span class="quick-card__meta">当前已公开 {{ total }} 篇文章</span>
+        </a>
+        <a href="/search" class="quick-card">
+            <p class="eyebrow">Search</p>
+            <h3 class="quick-card__title">从问题或关键词直接切入</h3>
+            <p class="quick-card__body">如果你已经带着具体问题来，搜索通常会比首页滚动浏览更快命中。</p>
+            <span class="quick-card__meta">覆盖标题、摘要和正文</span>
+        </a>
+        <a href="/rss.xml" class="quick-card" target="_blank" rel="noreferrer">
+            <p class="eyebrow">RSS</p>
+            <h3 class="quick-card__title">把更新接入你的阅读器</h3>
+            <p class="quick-card__body">不想每次手动回来刷新时，RSS 会是最轻量也最稳定的订阅方式。</p>
+            <span class="quick-card__meta">适合长期追更</span>
+        </a>
+    </div>
 
-        {% if posts %}
-            <div class="posts-grid"> {# 可选: 如果想用 CSS Grid 布局卡片 #}
-            {% for post in posts %}
-                {# 1. 应用新 CSS 中的 .card 样式 #}
-                <article class="card mb-4 fade-in"> {# mb-4 可以保留或用新CSS的间距 #}
-                    {# 可选: 如果新 .card 样式需要图片包装器 #}
-                    {% if post.image_url %} {# 假设您的 Post 模型可以有图片 #}
-                    <div class="card-img-wrapper">
-                        <a href="/post/{{ post.slug }}">
-                            <img src="{{ post.image_url }}" class="card-img-top" alt="{{ post.title }}">
-                        </a>
-                    </div>
-                    {% endif %}
-                    <div class="card-body">
-                        <h3 class="card-title"> {# h2 -> h3 for better hierarchy if h1/h2 are page/section titles #}
-                            <a href="/post/{{ post.slug }}" class="text-decoration-none">{{ post.title }}</a>
-                        </h3>
-                        <div class="card-meta"> {# 使用新CSS的 .card-meta #}
-                            {% if post.category %}
-                                {# 2. 移除 .badge .bg-primary, 使用新CSS的 .tag 或自定义分类样式 #}
-                                <a href="/?category_id={{ post.category.id }}" class="tag category-tag">{{ post.category.name }}</a>
-                            {% endif %}
-                            <span><small>发布于 {{ post.created_at.strftime('%Y-%m-%d') }}</small></span>
-                            {# 可以添加作者信息等 #}
-                            {# <span><small>作者: {{ post.author.username }}</small></span> #}
-                        </div>
-                        <p class="card-text">{{ post.content|truncate(150) }}</p> {# 调整摘要长度 #}
-                        {# 3. 应用新 CSS 中的 .btn .btn-primary (或其他自定义按钮类) #}
-                        <div class="mt-auto pt-3"> {# Pushes button to bottom of card-body if card-body is flex column #}
-                             <a href="/post/{{ post.slug }}" class="btn btn-primary">阅读更多</a>
-                        </div>
-                    </div>
-                </article>
+    {% if featured_posts %}
+    <div class="section-stack">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">Featured</p>
+                <h2>精选文章</h2>
+            </div>
+        </div>
+        <div class="feature-grid">
+            {% for post in featured_posts %}
+            {% include "_post_card.html" %}
             {% endfor %}
-            </div>
-        {% else %}
-            {# 4. 移除 .alert .alert-info, 使用更通用的提示样式或简单文本 #}
-            <div class="empty-state-message text-center py-5">
-                <h4>暂无文章</h4>
-                <p class="text-muted">很快就会有精彩内容，敬请期待！</p>
-            </div>
-        {% endif %}
-
-        {# 分页逻辑可以保留，但需要确保分页链接的样式也与新主题一致 #}
-        {# 您可能需要在新 CSS 中为 .pagination, .page-item, .page-link 添加样式 #}
-        {% include "_pagination.html" %} {# 假设您有分页的 include 文件 #}
-
+        </div>
     </div>
-
-    <div class="col-md-4">
-        {# 5. 侧边栏卡片: 应用新 CSS 中的 .sidebar-card #}
-<aside class="sidebar-card mb-4">
-    <h4 class="sidebar-title">关于博客</h4>
-    <p class="text-secondary">欢迎来到Async Blog！这是一个使用FastAPI和异步技术构建的现代博客系统。</p>
-    {% if not user_is_authenticated %} {# 根据认证状态显示/隐藏 #}
-<a href="/register" class="btn btn-primary w-100" id="sidebar-register-btn">立即注册</a>
     {% endif %}
-</aside>
 
-        <aside class="sidebar-card mb-4" id="categories">
-            <h4 class="sidebar-title">分类</h4>
-            <ul class="list-unstyled"> {# 移除 list-group, list-group-flush #}
-                {% for category, count in categories %}
-                    {# 6. 分类项: 应用新 CSS 中的 .category-item #}
-                    <li class="category-item">
-                        <a href="/?category_id={{ category.id }}" class="category-link">{{ category.name }}</a>
-                        {# 7. 分类计数: 应用新 CSS 中的 .category-count #}
-                        <span class="category-count">{{ count }}</span>
-                    </li>
-                {% endfor %}
-            </ul>
-        </aside>
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Latest</p>
+            <h2>最新发布</h2>
+            <p class="section-note">按发布时间、热度或起步顺序来读都可以，先从你最关心的问题开始。</p>
+        </div>
+        <div class="filter-pills">
+            <a href="/?sort=newest" class="filter-pill {% if sort == 'newest' %}active{% endif %}">最新</a>
+            <a href="/?sort=popular" class="filter-pill {% if sort == 'popular' %}active{% endif %}">最热</a>
+            <a href="/?sort=oldest" class="filter-pill {% if sort == 'oldest' %}active{% endif %}">最早</a>
+        </div>
+    </div>
 
-        <aside class="sidebar-card" id="tags">
-            <h4 class="sidebar-title">标签云</h4>
-            {# 8. 标签云: 应用新 CSS 中的 .tag-cloud 和 .tag #}
-            <div class="tag-cloud">
-                {% for tag_item in tags %} {# 确保这里的 'tags' 变量名与后端传过来的一致 #}
-                    <a href="/?tag_name={{ tag_item.name }}" class="tag">{{ tag_item.name }}</a>
-                {% endfor %}
+    <div class="shell-grid">
+        <section class="content-stack">
+            {% if posts %}
+                {% set lead_post = posts[0] %}
+                {% set card_variant = 'lead' %}
+                {% set post = lead_post %}
+                {% include "_post_card.html" %}
+
+                {% if posts|length > 1 %}
+                <div class="post-list-grid">
+                    {% for post in posts[1:] %}
+                    {% set card_variant = 'compact' %}
+                    {% include "_post_card.html" %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% include "_pagination.html" %}
+            {% else %}
+            <div class="empty-state">
+                <h3>这里暂时还没有文章</h3>
+                <p>可以先去看看归档，或者稍后再来。</p>
             </div>
+            {% endif %}
+        </section>
+
+        <aside class="sidebar-stack">
+            <section class="sidebar-card">
+                <p class="eyebrow">Discover</p>
+                <h3 class="sidebar-title">从分类进入</h3>
+                {% if categories %}
+                <ul class="meta-list">
+                    {% for category in categories %}
+                    <li>
+                        <a href="{{ url_for('category_page', slug=category.slug) }}" class="meta-list__link">{{ category.name }}</a>
+                        <span>{{ category.post_count }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="sidebar-empty">
+                    <strong>分类还在整理中</strong>
+                    <p>现在可以先从标签进入，等内容继续积累后，分类入口会更有层次。</p>
+                </div>
+                {% endif %}
+            </section>
+
+            <section class="sidebar-card">
+                <p class="eyebrow">Topics</p>
+                <h3 class="sidebar-title">热门标签</h3>
+                {% if tags %}
+                <div class="tag-cloud">
+                    {% for tag_item in tags %}
+                    <a href="{{ url_for('tag_page', slug=tag_item.slug) }}" class="tag">{{ tag_item.name }}</a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="sidebar-empty">
+                    <strong>还没有公开标签</strong>
+                    <p>等你继续发布内容后，这里会形成更清楚的主题地图。</p>
+                </div>
+                {% endif %}
+            </section>
+
+            <section class="sidebar-card">
+                <p class="eyebrow">Trending</p>
+                <h3 class="sidebar-title">值得先读</h3>
+                {% if popular_posts %}
+                <div class="sidebar-posts">
+                    {% for post in popular_posts %}
+                    <a href="/post/{{ post.slug }}" class="sidebar-post">
+                        <strong>{{ post.title }}</strong>
+                        <span>{{ post.views }} 浏览 · {{ post.comment_count }} 评论</span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="sidebar-empty">
+                    <strong>暂时还没有热门内容</strong>
+                    <p>等站点有更多阅读和互动数据后，这里会优先展示更值得先读的文章。</p>
+                </div>
+                {% endif %}
+            </section>
         </aside>
     </div>
-</div>
+</section>
 {% endblock %}

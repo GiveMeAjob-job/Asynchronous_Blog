@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}文章归档 - Async Blog{% endblock %}
+
+{% block content %}
+<section class="page-section">
+    <div class="section-heading section-heading--center">
+        <div>
+            <p class="eyebrow">Archive</p>
+            <h1>按时间归档浏览文章</h1>
+        </div>
+    </div>
+
+    <div class="shell-grid">
+        <section class="content-stack">
+            {% if archive_groups %}
+                {% for group in archive_groups %}
+                <section class="archive-group">
+                    <header class="archive-group__header">
+                        <h2>{{ group.label }}</h2>
+                        <span>{{ group.count }} 篇</span>
+                    </header>
+                    <div class="archive-list">
+                        {% for post in group.posts %}
+                        <a href="/post/{{ post.slug }}" class="archive-item">
+                            <div>
+                                <strong>{{ post.title }}</strong>
+                                <p>{{ (post.summary or post.content)|excerpt(120) }}</p>
+                            </div>
+                            <span>{{ (post.published_at or post.created_at).strftime('%m-%d') }}</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </section>
+                {% endfor %}
+            {% else %}
+            <div class="empty-state">
+                <h3>还没有可归档的文章</h3>
+                <p>等第一批内容发布后，这里会按月份自动整理出来。</p>
+            </div>
+            {% endif %}
+        </section>
+
+        <aside class="sidebar-stack">
+            <section class="sidebar-card">
+                <p class="eyebrow">Browse</p>
+                <h3 class="sidebar-title">分类</h3>
+                <ul class="meta-list">
+                    {% for category in categories %}
+                    <li>
+                        <a href="{{ url_for('category_page', slug=category.slug) }}" class="meta-list__link">{{ category.name }}</a>
+                        <span>{{ category.post_count }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </section>
+
+            <section class="sidebar-card">
+                <p class="eyebrow">Topics</p>
+                <h3 class="sidebar-title">标签</h3>
+                <div class="tag-cloud">
+                    {% for tag_item in tags %}
+                    <a href="{{ url_for('tag_page', slug=tag_item.slug) }}" class="tag">{{ tag_item.name }}</a>
+                    {% endfor %}
+                </div>
+            </section>
+        </aside>
+    </div>
+</section>
+{% endblock %}

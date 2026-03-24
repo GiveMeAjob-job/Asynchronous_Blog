@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.crud.base import CRUDBase
-from app.models.comment import Comment
+from app.models.comment import COMMENT_STATUS_APPROVED, Comment
 from app.models.post import Post
 from app.schemas.comment import CommentCreate, CommentUpdate
 
@@ -22,7 +22,10 @@ class CRUDComment(CRUDBase[Comment, CommentCreate, CommentUpdate]):
         db.add(db_obj)
         post = await db.get(Post, obj_in.post_id)
         if post is not None:
-            post.comment_count += 1
+            result = await db.execute(
+                select(Comment.id).where(Comment.post_id == obj_in.post_id, Comment.moderation_status == COMMENT_STATUS_APPROVED)
+            )
+            post.comment_count = len(result.scalars().all())
         await db.commit()
         return await self.get_with_author(db, id=db_obj.id)
 
@@ -46,7 +49,7 @@ class CRUDComment(CRUDBase[Comment, CommentCreate, CommentUpdate]):
     ) -> list[Comment]:
         query = select(Comment).where(Comment.post_id == post_id)
         if only_approved:
-            query = query.where(Comment.is_approved == True)
+            query = query.where(Comment.moderation_status == COMMENT_STATUS_APPROVED)
         if parent_id is None:
             query = query.where(Comment.parent_id.is_(None))
         else:
@@ -92,7 +95,7 @@ class CRUDComment(CRUDBase[Comment, CommentCreate, CommentUpdate]):
         comment = await self.get(db, id=comment_id)
         if comment is None:
             return None
-        comment.is_approved = True
+        comment.set_moderation_status(COMMENT_STATUS_APPROVED)
         await db.commit()
         return await self.get_with_author(db, id=comment.id)
 

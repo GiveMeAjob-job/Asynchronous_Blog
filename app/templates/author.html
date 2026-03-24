@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}{{ author.full_name or author.username }} - 作者主页 - Async Blog{% endblock %}
+{% block meta_description %}{{ author.bio or ((author.full_name or author.username) ~ ' 在 Async Blog 发布的全部公开文章。') }}{% endblock %}
+
+{% block content %}
+<section class="page-section">
+    <div class="author-page-hero content-panel">
+        <div class="author-page-hero__avatar">
+            {% if author.avatar_url %}
+            <img src="{{ author.avatar_url }}" alt="{{ author.username }}">
+            {% else %}
+            <span>{{ (author.full_name or author.username)[0]|upper }}</span>
+            {% endif %}
+        </div>
+        <div class="author-page-hero__content">
+            <p class="eyebrow">Author</p>
+            <h1>{{ author.full_name or author.username }}</h1>
+            <p class="author-page-hero__meta">@{{ author.username }}{% if author.location %} · {{ author.location }}{% endif %}</p>
+            <p class="section-intro">{{ author.bio or '这位作者还没有留下简介，但已经开始在这里持续产出内容。' }}</p>
+            <div class="tag-cloud">
+                {% if author.website %}
+                <a href="{{ author.website }}" class="tag" target="_blank" rel="noreferrer">个人网站</a>
+                {% endif %}
+                {% if can_edit_profile %}
+                <a href="{{ url_for('edit_user_profile_page') }}" class="tag">编辑我的资料</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="stats-grid stats-grid--compact">
+        <article class="stat-card">
+            <span class="stat-card__label">公开文章</span>
+            <strong class="stat-card__value">{{ stats.post_count }}</strong>
+        </article>
+        <article class="stat-card">
+            <span class="stat-card__label">累计浏览</span>
+            <strong class="stat-card__value">{{ stats.total_views }}</strong>
+        </article>
+        <article class="stat-card">
+            <span class="stat-card__label">累计点赞</span>
+            <strong class="stat-card__value">{{ stats.total_likes }}</strong>
+        </article>
+        <article class="stat-card">
+            <span class="stat-card__label">累计评论</span>
+            <strong class="stat-card__value">{{ stats.total_comments }}</strong>
+        </article>
+    </div>
+
+    <div class="shell-grid">
+        <section class="content-stack">
+            <div class="section-heading section-heading--compact">
+                <div>
+                    <p class="eyebrow">Posts</p>
+                    <h2>这位作者的公开文章</h2>
+                </div>
+            </div>
+
+            {% if posts %}
+                {% for post in posts %}
+                {% include "_post_card.html" %}
+                {% endfor %}
+                {% if total_pages > 1 %}
+                {% include "_pagination.html" %}
+                {% endif %}
+            {% else %}
+            <div class="empty-state">
+                <h3>还没有公开文章</h3>
+                <p>作者可能还在打磨草稿，稍后再来看看。</p>
+            </div>
+            {% endif %}
+        </section>
+
+        <aside class="sidebar-stack">
+            <section class="sidebar-card">
+                <p class="eyebrow">Browse</p>
+                <h3 class="sidebar-title">分类</h3>
+                <ul class="meta-list">
+                    {% for category in categories %}
+                    <li>
+                        <a href="{{ url_for('category_page', slug=category.slug) }}" class="meta-list__link">{{ category.name }}</a>
+                        <span>{{ category.post_count }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </section>
+
+            <section class="sidebar-card">
+                <p class="eyebrow">Topics</p>
+                <h3 class="sidebar-title">标签</h3>
+                <div class="tag-cloud">
+                    {% for tag_item in tags %}
+                    <a href="{{ url_for('tag_page', slug=tag_item.slug) }}" class="tag">{{ tag_item.name }}</a>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="sidebar-card">
+                <p class="eyebrow">Trending</p>
+                <h3 class="sidebar-title">热门文章</h3>
+                <div class="sidebar-posts">
+                    {% for post in popular_posts %}
+                    <a href="{{ url_for('post_detail', slug=post.slug) }}" class="sidebar-post">
+                        <strong>{{ post.title }}</strong>
+                        <span>{{ post.views }} 浏览</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </section>
+        </aside>
+    </div>
+</section>
+{% endblock %}

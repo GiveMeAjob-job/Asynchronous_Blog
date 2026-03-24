@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', function () {
         successDiv.classList.add('d-none');
 
         try {
-            await axios.post('/api/v1/auth/request-password-reset', { email });
+            await axios.post('/auth/request-password-reset', { email });
             successDiv.textContent = '重置链接已发送，请检查邮箱。';
             successDiv.classList.remove('d-none');
             form.reset();

@@ -33,6 +33,7 @@ class User(Base, TimestampMixin):
 
     post_count = Column(Integer, default=0, nullable=False)
     comment_count = Column(Integer, default=0, nullable=False)
+    token_version = Column(Integer, default=0, nullable=False)
 
     posts = relationship("Post", back_populates="author", cascade="all, delete-orphan")
     comments = relationship("Comment", back_populates="author", cascade="all, delete-orphan")
@@ -54,6 +55,9 @@ class User(Base, TimestampMixin):
         self.is_active = True
         self.email_verification_token = None
         self.email_verification_token_expires_at = None
+
+    def bump_token_version(self) -> None:
+        self.token_version = (self.token_version or 0) + 1
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, username='{self.username}', email='{self.email}')>"

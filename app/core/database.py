@@ -5,7 +5,7 @@ import logging
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base, DeclarativeMeta
-from sqlalchemy.pool import NullPool, QueuePool
+from sqlalchemy.pool import NullPool
 from sqlalchemy import event, MetaData, text
 
 from app.core.config import settings
@@ -27,16 +27,19 @@ Base: DeclarativeMeta = declarative_base(metadata=metadata)
 # 修复：正确获取数据库URL
 database_url = settings.get_database_url(async_mode=True)
 
-# 根据环境选择连接池
-if settings.ENVIRONMENT == "testing":
-    # 测试环境使用 NullPool
+use_null_pool = (
+    settings.ENVIRONMENT in {"development", "testing"}
+    or settings.DB_USE_NULL_POOL
+    or database_url.startswith("sqlite")
+)
+
+if use_null_pool:
     engine = create_async_engine(
         database_url,
-        echo=False,
+        echo=settings.DEBUG if settings.ENVIRONMENT != "testing" else False,
         poolclass=NullPool,
     )
 else:
-    # 生产环境使用 QueuePool
     engine = create_async_engine(
         database_url,
         echo=settings.DEBUG,
@@ -72,7 +75,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             yield session
         except Exception as e:
             await session.rollback()
-            logger.error(f"Database session error: {e}")
+            logger.exception("Database session error")
             raise
         finally:
             await session.close()

@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const tbody = document.getElementById('users-body');
 
     async function loadUsers() {
-        const res = await axios.get('/api/v1/users/');
+        const res = await axios.get('/users/');
         tbody.innerHTML = '';
         res.data.forEach(u => {
             const row = document.createElement('tr');

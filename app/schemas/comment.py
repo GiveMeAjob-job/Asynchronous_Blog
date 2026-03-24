@@ -23,7 +23,11 @@ class Comment(CommentBase):
     id: int
     post_id: int
     author_id: int
-    is_approved: bool = True
+    is_approved: bool = False
+    moderation_status: str = "pending"
+    is_pending: bool = True
+    is_hidden: bool = False
+    is_visible: bool = False
     is_edited: bool = False
     created_at: datetime
     updated_at: datetime

@@ -3,121 +3,132 @@
 {% block title %}仪表盘 - Async Blog{% endblock %}
 
 {% block content %}
-<div class="row mt-section"> {# 使用新CSS的间距类 #}
-    <div class="col-md-3">
-        {# 1. 侧边导航菜单: 移除 list-group 类，应用新的导航或链接样式 #}
-        {# 您可能需要在新 CSS 中为 .dashboard-nav, .dashboard-nav-item, .dashboard-nav-link, .active 创建样式 #}
-        <nav class="dashboard-nav sidebar-card p-0"> {# 使用 .sidebar-card 作为背景和边框，p-0 移除内边距 #}
-            <a href="/dashboard" class="dashboard-nav-link active"> {/* 假设 .dashboard-nav-link 处理内边距和悬停 */}
-                仪表盘总览
-            </a>
-            <a href="/dashboard/posts" class="dashboard-nav-link">
-                我的文章
-            </a>
-            <a href="/dashboard/posts/new" class="dashboard-nav-link">
-                发布新文章
-            </a>
-            <a href="/dashboard/profile" class="dashboard-nav-link">
-                个人资料
-            </a>
-        </nav>
-    </div>
-    <div class="col-md-9">
-        {# 2. 主内容卡片: 移除 Bootstrap .card, .card-header, .card-body, 应用新CSS的 .content-panel 或类似类 #}
-        <section class="content-panel"> {# 或者直接使用 .sidebar-card 如果样式一致 #}
-            <h3 class="section-title mb-4">仪表盘</h3> {# 使用新CSS的 .section-title #}
+<section class="page-section">
+    <div class="dashboard-shell">
+        {% include "dashboard/_sidebar.html" %}
 
-            <div class="row">
-                {# 3. 统计卡片: 移除 Bootstrap .card, .text-white, .bg-primary 等 #}
-                {# 应用新CSS的 .stat-card 或类似的类 #}
-                <div class="col-md-4 mb-4">
-                    <div class="stat-card">
-                        <h5 class="stat-title">文章总数</h5>
-                        <p class="stat-value display-4">{{ total_posts }}</p>
-                    </div>
+        <section class="content-panel">
+            <div class="section-heading section-heading--compact">
+                <div>
+                    <p class="eyebrow">Dashboard</p>
+                    <h1>写作状态一眼看清</h1>
                 </div>
-                <div class="col-md-4 mb-4">
-                    <div class="stat-card">
-                        <h5 class="stat-title">已发布</h5>
-                        <p class="stat-value display-4">{{ published_posts }}</p>
-                    </div>
-                </div>
-                <div class="col-md-4 mb-4">
-                    <div class="stat-card">
-                        <h5 class="stat-title">草稿</h5>
-                        <p class="stat-value display-4">{{ draft_posts }}</p>
-                    </div>
+                <div class="section-actions">
+                    <a href="{{ url_for('new_post_page') }}" class="btn btn-primary">发布新文章</a>
+                    <a href="{{ url_for('my_posts') }}" class="btn btn-ghost">管理文章</a>
                 </div>
             </div>
 
-            <h4 class="section-title mt-5 mb-4">最近文章</h4>
-            {# 4. 表格: 移除 .table 类，或者在您的新 CSS 中为 .table 提供深色主题样式 #}
-            {# 如果完全移除 Bootstrap CSS，您需要从头定义表格样式 #}
-            <div class="table-responsive"> {# 保留响应式包装器 #}
-                <table class="custom-table"> {# 使用自定义表格类 .custom-table #}
-                    <thead>
-                        <tr>
-                            <th>标题</th>
-                            <th>状态</th>
-                            <th>发布日期</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for post in recent_posts %}
-                        <tr>
-                            <td>
-                                <a href="{{ url_for('post_detail', slug=post.slug) if post.published else '#' }}" class="text-primary"> {# 假设链接和样式已根据新主题调整 #}
-                                    {{ post.title }}
-                                </a>
-                            </td>
-                            <td>
-                                {% if post.published %}
-                                <span class="status-badge status-published">已发布</span> {# 假设使用了新的状态徽章样式 #}
+            <div class="stats-grid">
+                <article class="stat-card">
+                    <span class="stat-card__label">文章总数</span>
+                    <strong class="stat-card__value">{{ total_posts }}</strong>
+                </article>
+                <article class="stat-card">
+                    <span class="stat-card__label">已发布</span>
+                    <strong class="stat-card__value">{{ published_posts }}</strong>
+                </article>
+                <article class="stat-card">
+                    <span class="stat-card__label">草稿</span>
+                    <strong class="stat-card__value">{{ draft_posts }}</strong>
+                </article>
+                <article class="stat-card">
+                    <span class="stat-card__label">累计浏览</span>
+                    <strong class="stat-card__value">{{ total_views }}</strong>
+                </article>
+                <article class="stat-card">
+                    <span class="stat-card__label">累计评论</span>
+                    <strong class="stat-card__value">{{ total_comments }}</strong>
+                </article>
+            </div>
+
+            <div class="panel-grid">
+                <section class="sub-panel">
+                    <div class="section-heading section-heading--compact">
+                        <div>
+                            <p class="eyebrow">Recent</p>
+                            <h2>最近文章</h2>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th>标题</th>
+                                    <th>状态</th>
+                                    <th>创建时间</th>
+                                    <th>浏览</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for post in recent_posts %}
+                                <tr>
+                                    <td>
+                                        <a href="{{ url_for('post_detail', slug=post.slug) if post.published else url_for('edit_post_page_route', post_id=post.id) }}">{{ post.title }}</a>
+                                    </td>
+                                    <td>
+                                        {% if post.published %}
+                                        <span class="status-badge status-published">已发布</span>
+                                        {% else %}
+                                        <span class="status-badge status-draft">草稿</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ post.created_at.strftime('%Y-%m-%d') }}</td>
+                                    <td>{{ post.views }}</td>
+                                    <td class="table-actions">
+                                        <a href="{{ url_for('edit_post_page_route', post_id=post.id) }}" class="btn btn-secondary btn-sm">编辑</a>
+                                        <button class="btn btn-danger-outline btn-sm delete-post" data-id="{{ post.id }}" data-title="{{ post.title }}">删除</button>
+                                    </td>
+                                </tr>
                                 {% else %}
-                                <span class="status-badge status-draft">草稿</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ post.created_at.strftime('%Y-%m-%d') }}</td>
-                            <td>
-                                <a href="/dashboard/posts/edit/{{ post.id }}" class="btn btn-outline btn-sm">编辑</a> {# 假设使用了新的按钮样式 #}
-                                <button class="btn btn-danger-outline btn-sm delete-post" data-id="{{ post.id }}">删除</button>
-                            </td>
-                        </tr>
-                        {% else %} {# <--- 确保这里是 {% else %} 而不是 {% empty %} #}
-                        <tr>
-                            <td colspan="4" class="text-center text-muted py-4">暂无最近文章</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                                <tr>
+                                    <td colspan="5" class="table-empty">还没有文章，先发布第一篇吧。</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="sub-panel">
+                    <div class="section-heading section-heading--compact">
+                        <div>
+                            <p class="eyebrow">Actions</p>
+                            <h2>快速操作</h2>
+                        </div>
+                    </div>
+
+                    <div class="action-list">
+                        <a href="{{ url_for('new_post_page') }}" class="action-card">
+                            <strong>写一篇新文章</strong>
+                            <span>进入带摘要、封面和 SEO 字段的新编辑器。</span>
+                        </a>
+                        <a href="{{ url_for('my_posts') }}" class="action-card">
+                            <strong>整理现有内容</strong>
+                            <span>继续补全草稿，或者优化已经发布的文章。</span>
+                        </a>
+                        <a href="{{ url_for('dashboard_analytics_page') }}" class="action-card">
+                            <strong>查看数据分析</strong>
+                            <span>看看哪些文章真正被读到、被评论、被喜欢。</span>
+                        </a>
+                        <a href="{{ url_for('dashboard_comments_page') }}" class="action-card">
+                            <strong>管理评论</strong>
+                            <span>快速隐藏不合适内容，或者恢复被折叠的评论。</span>
+                        </a>
+                        <a href="{{ url_for('user_profile_page') }}" class="action-card">
+                            <strong>完善作者资料</strong>
+                            <span>补充简介、网站、头像和展示信息。</span>
+                        </a>
+                    </div>
+                </section>
             </div>
         </section>
     </div>
-</div>
+</section>
 {% endblock %}
 
 {% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const deleteButtons = document.querySelectorAll('.delete-post');
-    deleteButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const postId = this.getAttribute('data-id');
-            // 使用更符合新主题的确认对话框 (如果您的新CSS包含自定义模态框或提示样式)
-            // 或者暂时保留 confirm()
-            if(confirm('确定要删除这篇文章吗？此操作不可恢复。')) {
-                axios.delete(`/api/v1/posts/${postId}`) // 确保 API 路径正确
-                    .then(response => {
-                        window.location.reload();
-                    })
-                    .catch(error => {
-                        // 使用更符合新主题的错误提示
-                        alert('删除失败：' + (error.response?.data?.detail || '未知错误'));
-                    });
-            }
-        });
-    });
-});
-</script>
+<script src="{{ static_asset(request, 'js/dashboard.js') }}"></script>
 {% endblock %}

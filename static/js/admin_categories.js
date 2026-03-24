@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('category-form');
 
     async function loadCategories() {
-        const res = await axios.get('/api/v1/categories/');
+        const res = await axios.get('/categories/');
         tbody.innerHTML = '';
         res.data.forEach(cat => {
             const row = document.createElement('tr');
@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', function () {
             e.preventDefault();
             const name = form.querySelector('[name="name"]').value;
             const description = form.querySelector('[name="description"]').value;
-            await axios.post('/api/v1/categories/', { name, description });
+            await axios.post('/categories/', { name, description });
             form.reset();
             loadCategories();
         });

@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         try {
-            await axios.post('/api/v1/auth/reset-password', { token, new_password: password });
+            await axios.post('/auth/reset-password', { token, new_password: password });
             successDiv.textContent = '密码已重置，请重新登录。';
             successDiv.classList.remove('d-none');
             form.reset();

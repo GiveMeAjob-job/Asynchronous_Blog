@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}{{ topic_type }} - {{ topic_name }} - Async Blog{% endblock %}
+{% block meta_description %}{{ topic_description }}{% endblock %}
+
+{% block content %}
+<section class="page-section">
+    <div class="section-heading section-heading--center">
+        <div>
+            <p class="eyebrow">{{ topic_badge }}</p>
+            <h1>{{ topic_name }}</h1>
+            <p class="section-intro">{{ topic_description }}</p>
+        </div>
+    </div>
+
+    <div class="shell-grid">
+        <section class="content-stack">
+            <div class="topic-summary-card">
+                <strong>{{ total }}</strong>
+                <span>篇公开文章归属于这个{{ topic_type }}</span>
+            </div>
+
+            {% if posts %}
+                {% for post in posts %}
+                {% include "_post_card.html" %}
+                {% endfor %}
+                {% if total_pages > 1 %}
+                {% include "_pagination.html" %}
+                {% endif %}
+            {% else %}
+            <div class="empty-state">
+                <h3>这里暂时还没有文章</h3>
+                <p>等更多内容整理进这个{{ topic_type }}后，这里会形成一条更完整的阅读线索。</p>
+            </div>
+            {% endif %}
+        </section>
+
+        <aside class="sidebar-stack">
+            <section class="sidebar-card">
+                <p class="eyebrow">Explore</p>
+                <h3 class="sidebar-title">更多分类</h3>
+                <ul class="meta-list">
+                    {% for category in categories %}
+                    <li>
+                        <a href="{{ url_for('category_page', slug=category.slug) }}" class="meta-list__link">{{ category.name }}</a>
+                        <span>{{ category.post_count }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </section>
+
+            <section class="sidebar-card">
+                <p class="eyebrow">Topics</p>
+                <h3 class="sidebar-title">热门标签</h3>
+                <div class="tag-cloud">
+                    {% for tag_item in tags %}
+                    <a href="{{ url_for('tag_page', slug=tag_item.slug) }}" class="tag">{{ tag_item.name }}</a>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="sidebar-card">
+                <p class="eyebrow">Trending</p>
+                <h3 class="sidebar-title">热门文章</h3>
+                <div class="sidebar-posts">
+                    {% for post in popular_posts %}
+                    <a href="{{ url_for('post_detail', slug=post.slug) }}" class="sidebar-post">
+                        <strong>{{ post.title }}</strong>
+                        <span>{{ post.views }} 浏览 · {{ post.comment_count }} 评论</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </section>
+        </aside>
+    </div>
+</section>
+{% endblock %}

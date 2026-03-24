@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}评论管理 - Async Blog{% endblock %}
+
+{% block content %}
+<section class="page-section">
+    <div class="dashboard-shell">
+        {% include "dashboard/_sidebar.html" %}
+
+        <section class="content-panel">
+            <div class="section-heading section-heading--compact">
+                <div>
+                    <p class="eyebrow">Comments</p>
+                    <h1>管理你文章下的全部评论</h1>
+                </div>
+            </div>
+
+            <div class="stats-grid stats-grid--compact">
+                <article class="stat-card">
+                    <span class="stat-card__label">总评论</span>
+                    <strong class="stat-card__value" id="comment-stat-total">{{ comment_stats.total }}</strong>
+                </article>
+                <article class="stat-card">
+                    <span class="stat-card__label">待审核</span>
+                    <strong class="stat-card__value" id="comment-stat-pending">{{ comment_stats.pending }}</strong>
+                </article>
+                <article class="stat-card">
+                    <span class="stat-card__label">已展示</span>
+                    <strong class="stat-card__value" id="comment-stat-visible">{{ comment_stats.visible }}</strong>
+                </article>
+                <article class="stat-card">
+                    <span class="stat-card__label">已隐藏</span>
+                    <strong class="stat-card__value" id="comment-stat-hidden">{{ comment_stats.hidden }}</strong>
+                </article>
+            </div>
+
+            <div class="filter-pills">
+                <a href="{{ url_for('dashboard_comments_page') }}?status=all" class="filter-pill {% if status_filter == 'all' %}active{% endif %}">全部</a>
+                <a href="{{ url_for('dashboard_comments_page') }}?status=pending" class="filter-pill {% if status_filter == 'pending' %}active{% endif %}">待审核</a>
+                <a href="{{ url_for('dashboard_comments_page') }}?status=visible" class="filter-pill {% if status_filter == 'visible' %}active{% endif %}">已展示</a>
+                <a href="{{ url_for('dashboard_comments_page') }}?status=hidden" class="filter-pill {% if status_filter == 'hidden' %}active{% endif %}">已隐藏</a>
+            </div>
+
+            <div class="moderation-list">
+                {% for comment in comments %}
+                <article class="moderation-card" data-comment-id="{{ comment.id }}" data-comment-status="{{ comment.moderation_status }}">
+                    <div class="moderation-card__header">
+                        <div>
+                            <strong>{{ comment.author.full_name or comment.author.username }}</strong>
+                            <span>{{ comment.post.title if comment.post else '未知文章' }}</span>
+                        </div>
+                        <span class="status-badge {% if comment.moderation_status == 'approved' %}status-published{% elif comment.moderation_status == 'pending' %}status-draft{% else %}status-hidden{% endif %}" data-comment-status-label>
+                            {% if comment.moderation_status == 'approved' %}已展示{% elif comment.moderation_status == 'pending' %}待审核{% else %}已隐藏{% endif %}
+                        </span>
+                    </div>
+
+                    <p class="moderation-card__content">{{ comment.content }}</p>
+                    <div class="moderation-card__footer">
+                        <span>{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                        <div class="table-actions">
+                            <a href="{{ url_for('post_detail', slug=comment.post.slug) if comment.post and comment.post.published else url_for('edit_post_page_route', post_id=comment.post_id) }}" class="btn btn-ghost btn-sm" target="_blank">查看文章</a>
+                            <button type="button" class="btn btn-secondary btn-sm moderation-action" data-action="approve" data-comment-id="{{ comment.id }}" {% if comment.moderation_status == 'approved' %}disabled{% endif %}>
+                                {% if comment.moderation_status == 'pending' %}通过审核{% else %}恢复展示{% endif %}
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-sm moderation-action" data-action="hide" data-comment-id="{{ comment.id }}" {% if comment.moderation_status == 'hidden' %}disabled{% endif %}>隐藏</button>
+                            <button type="button" class="btn btn-danger-outline btn-sm moderation-action" data-action="delete" data-comment-id="{{ comment.id }}">删除</button>
+                        </div>
+                    </div>
+                </article>
+                {% else %}
+                <div class="empty-state">
+                    <h3>当前筛选下没有评论</h3>
+                    <p>等读者开始留言后，这里会成为你维护讨论氛围的主控台。</p>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ static_asset(request, 'js/dashboard.js') }}"></script>
+{% endblock %}

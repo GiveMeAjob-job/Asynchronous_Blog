@@ -19,8 +19,8 @@ def send_email(
         text_content: str = None
 ):
     """异步发送邮件"""
-    if not settings.MAIL_USERNAME or not settings.MAIL_PASSWORD:
-        return
+    if not settings.mail_enabled:
+        raise RuntimeError("邮件服务未配置，无法发送邮件")
 
     message = MIMEMultipart("alternative")
     message["Subject"] = subject

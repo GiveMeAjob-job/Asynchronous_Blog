@@ -1,0 +1,46 @@
+{% set card_variant = card_variant|default('default') %}
+<article class="post-card post-card--{{ card_variant }}">
+    {% if post.featured_image %}
+    <a href="/post/{{ post.slug }}" class="post-card__media">
+        <img src="{{ post.featured_image }}" alt="{{ post.title }}" loading="lazy">
+    </a>
+    {% endif %}
+
+    <div class="post-card__body">
+        <div class="post-card__eyebrow">
+            {% if card_variant == 'lead' %}
+            <span class="post-card__kicker">主线文章</span>
+            {% endif %}
+            {% if post.category %}
+            <a href="{{ url_for('category_page', slug=post.category.slug) }}" class="pill pill-accent">{{ post.category.name }}</a>
+            {% endif %}
+            <span>{{ (post.published_at or post.created_at).strftime('%Y-%m-%d') }}</span>
+            <span>{{ post.views }} 浏览</span>
+        </div>
+
+        <h3 class="post-card__title">
+            <a href="/post/{{ post.slug }}">{{ post.title }}</a>
+        </h3>
+
+        <p class="post-card__summary">{{ (post.summary or post.content)|excerpt(170) }}</p>
+
+        {% if post.tags %}
+        <div class="tag-cloud tag-cloud--compact">
+            {% for tag_item in post.tags[:(5 if card_variant == 'lead' else 4)] %}
+            <a href="{{ url_for('tag_page', slug=tag_item.slug) }}" class="tag">{{ tag_item.name }}</a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="post-card__footer">
+            <div class="author-inline">
+                <span class="author-inline__avatar">{{ (post.author.full_name or post.author.username)[0]|upper }}</span>
+                <div>
+                    <strong><a href="{{ url_for('author_page', username=post.author.username) }}">{{ post.author.full_name or post.author.username }}</a></strong>
+                    <span>{{ post.comment_count }} 评论</span>
+                </div>
+            </div>
+            <a href="/post/{{ post.slug }}" class="btn btn-secondary">阅读全文</a>
+        </div>
+    </div>
+</article>
