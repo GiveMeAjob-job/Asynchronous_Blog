@@ -1,6 +1,7 @@
 # app/main.py
 from contextlib import asynccontextmanager
-from datetime import datetime
+from decimal import Decimal, ROUND_HALF_UP
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Any
 import math
@@ -782,6 +783,94 @@ async def register_page(request: Request):
 
 
 # --- 仪表盘路由 ---
+ANALYTICS_PERIOD_LABELS = {
+    30: "近 30 天",
+    90: "近 90 天",
+    180: "近 180 天",
+    365: "近 365 天",
+}
+
+WEEKDAY_LABELS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+
+
+def normalize_analytics_period(period: Optional[int]) -> int:
+    if period in ANALYTICS_PERIOD_LABELS:
+        return period
+    return 90
+
+
+def format_metric_value(value: float | int, precision: int = 1, suffix: str = "") -> str:
+    quantize_pattern = "1" if precision == 0 else f"1.{'0' * precision}"
+    numeric = Decimal(str(value)).quantize(Decimal(quantize_pattern), rounding=ROUND_HALF_UP)
+    if precision == 0 or numeric == numeric.to_integral():
+        return f"{int(numeric)}{suffix}"
+    return f"{numeric:.{precision}f}{suffix}"
+
+
+def describe_metric_change(
+    current: float,
+    previous: float,
+    *,
+    precision: int = 1,
+    higher_is_better: bool = True,
+    suffix: str = "",
+) -> dict[str, str]:
+    delta = round(float(current) - float(previous), precision)
+    if abs(delta) < (10 ** (-precision)):
+        return {"delta_text": "与上一周期持平", "delta_tone": "neutral"}
+
+    if previous == 0:
+        tone = "positive" if (current > 0 and higher_is_better) or (current < 0 and not higher_is_better) else "neutral"
+        return {
+            "delta_text": f"较上一周期新增 {format_metric_value(abs(current), precision, suffix)}",
+            "delta_tone": tone,
+        }
+
+    percent_change = abs(delta) / abs(previous) * 100
+    improved = delta > 0 if higher_is_better else delta < 0
+    direction_label = "提升" if improved else "回落"
+    return {
+        "delta_text": (
+            f"{direction_label} {format_metric_value(abs(delta), precision, suffix)}"
+            f" / {format_metric_value(percent_change, 0, '%')}"
+        ),
+        "delta_tone": "positive" if improved else "negative",
+    }
+
+
+def rate_to_tone(rate: float) -> str:
+    if rate >= 80:
+        return "positive"
+    if rate >= 55:
+        return "warning"
+    return "negative"
+
+
+def build_ratio_health_card(label: str, completed: int, total: int, helper: str) -> dict[str, str]:
+    rate = round((completed / total) * 100, 1) if total else 0
+    return {
+        "label": label,
+        "value": format_metric_value(rate, 0, "%"),
+        "helper": helper,
+        "tone": rate_to_tone(rate) if total else "neutral",
+    }
+
+
+def describe_elapsed_days(timestamp: Optional[datetime], now: datetime) -> str:
+    if timestamp is None:
+        return "尚未开始"
+    days = max((now.date() - timestamp.date()).days, 0)
+    if days == 0:
+        return "今天更新"
+    if days == 1:
+        return "昨天更新"
+    return f"{days} 天前更新"
+
+
+def post_engagement_score(post: Post) -> float:
+    return round((post.like_count * 3.0) + (post.comment_count * 4.0) + (post.views / 20.0), 1)
+
+
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(
         request: Request,
@@ -840,13 +929,15 @@ async def my_posts(
 async def dashboard_analytics_page(
         request: Request,
         current_user: User = Depends(get_dashboard_user),
+        period: int = Query(90),
 ):
     if isinstance(current_user, RedirectResponse):
         return current_user
 
+    selected_period = normalize_analytics_period(period)
     async with async_session() as db:
         stats = await get_user_dashboard_stats(db, current_user)
-        analytics = await get_user_analytics_snapshot(db, current_user)
+        analytics = await get_user_analytics_snapshot(db, current_user, selected_period)
 
     return templates.TemplateResponse(
         "dashboard/analytics.html",
@@ -919,23 +1010,63 @@ def get_recent_month_labels(month_count: int = 6) -> list[str]:
     return labels
 
 
-async def get_user_analytics_snapshot(db: AsyncSession, user: User) -> dict[str, Any]:
+async def get_user_analytics_snapshot(
+    db: AsyncSession,
+    user: User,
+    period_days: int,
+) -> dict[str, Any]:
     posts_result = await db.execute(
-        select(Post).options(selectinload(Post.category)).where(Post.author_id == user.id).order_by(Post.created_at.desc())
+        select(Post)
+        .options(selectinload(Post.category), selectinload(Post.tags))
+        .where(Post.author_id == user.id)
+        .order_by(Post.created_at.desc())
     )
     posts = posts_result.scalars().all()
     published_posts = [post for post in posts if post.published]
+    draft_posts = [post for post in posts if not post.published]
+    now = datetime.utcnow()
+    period_days = normalize_analytics_period(period_days)
+    period_label = ANALYTICS_PERIOD_LABELS[period_days]
+    period_start = now - timedelta(days=period_days)
+    previous_period_start = period_start - timedelta(days=period_days)
 
-    top_posts = sorted(
-        published_posts,
-        key=lambda post: (post.views, post.like_count, post.comment_count, post.created_at.timestamp()),
-        reverse=True,
-    )[:5]
+    def activity_date(post: Post) -> datetime:
+        return post.published_at or post.created_at
 
-    month_labels = get_recent_month_labels()
+    period_posts = [post for post in published_posts if period_start <= activity_date(post) <= now]
+    previous_period_posts = [
+        post for post in published_posts if previous_period_start <= activity_date(post) < period_start
+    ]
+
+    average_views = round(sum(post.views for post in published_posts) / len(published_posts), 1) if published_posts else 0
+    average_likes = round(sum(post.like_count for post in published_posts) / len(published_posts), 1) if published_posts else 0
+    average_comments = round(sum(post.comment_count for post in published_posts) / len(published_posts), 1) if published_posts else 0
+    latest_published_post = max(published_posts, key=activity_date, default=None)
+
+    period_views = sum(post.views for post in period_posts)
+    period_likes = sum(post.like_count for post in period_posts)
+    period_comments = sum(post.comment_count for post in period_posts)
+    previous_views = sum(post.views for post in previous_period_posts)
+    previous_likes = sum(post.like_count for post in previous_period_posts)
+    previous_comments = sum(post.comment_count for post in previous_period_posts)
+
+    period_avg_views = round(period_views / len(period_posts), 1) if period_posts else 0
+    period_avg_likes = round(period_likes / len(period_posts), 1) if period_posts else 0
+    period_avg_comments = round(period_comments / len(period_posts), 1) if period_posts else 0
+    previous_avg_views = round(previous_views / len(previous_period_posts), 1) if previous_period_posts else 0
+    previous_avg_likes = round(previous_likes / len(previous_period_posts), 1) if previous_period_posts else 0
+    previous_avg_comments = round(previous_comments / len(previous_period_posts), 1) if previous_period_posts else 0
+
+    period_engagement_rate = round(((period_likes + period_comments) / period_views) * 100, 1) if period_views else 0
+    previous_engagement_rate = (
+        round(((previous_likes + previous_comments) / previous_views) * 100, 1) if previous_views else 0
+    )
+
+    month_count = 12 if period_days >= 365 else 6 if period_days >= 180 else 4
+    month_labels = get_recent_month_labels(month_count)
     month_counts = {label: 0 for label in month_labels}
     for post in published_posts:
-        label = (post.published_at or post.created_at).strftime("%Y-%m")
+        label = activity_date(post).strftime("%Y-%m")
         if label in month_counts:
             month_counts[label] += 1
 
@@ -944,10 +1075,22 @@ async def get_user_analytics_snapshot(db: AsyncSession, user: User) -> dict[str,
     for item in monthly_data:
         item["percent"] = 0 if max_month_count == 0 else int(item["count"] / max_month_count * 100)
 
+    weekday_counts = {label: 0 for label in WEEKDAY_LABELS}
+    for post in period_posts:
+        weekday_counts[WEEKDAY_LABELS[activity_date(post).weekday()]] += 1
+    weekday_breakdown = [{"label": label, "count": count} for label, count in weekday_counts.items()]
+    max_weekday_count = max((item["count"] for item in weekday_breakdown), default=0)
+    for item in weekday_breakdown:
+        item["percent"] = 0 if max_weekday_count == 0 else int(item["count"] / max_weekday_count * 100)
+    best_weekday = max(weekday_breakdown, key=lambda item: item["count"], default=None)
+
     category_counts: dict[str, int] = {}
+    tag_counts: dict[str, int] = {}
     for post in published_posts:
         category_name = post.category.name if post.category else "未分类"
         category_counts[category_name] = category_counts.get(category_name, 0) + 1
+        for tag in post.tags:
+            tag_counts[tag.name] = tag_counts.get(tag.name, 0) + 1
 
     category_breakdown = [
         {"name": name, "count": count}
@@ -956,6 +1099,11 @@ async def get_user_analytics_snapshot(db: AsyncSession, user: User) -> dict[str,
     max_category_count = max((item["count"] for item in category_breakdown), default=0)
     for item in category_breakdown:
         item["percent"] = 0 if max_category_count == 0 else int(item["count"] / max_category_count * 100)
+
+    tag_breakdown = [
+        {"name": name, "count": count}
+        for name, count in sorted(tag_counts.items(), key=lambda item: (-item[1], item[0]))[:8]
+    ]
 
     recent_comments_result = await db.execute(
         select(Comment)
@@ -967,15 +1115,246 @@ async def get_user_analytics_snapshot(db: AsyncSession, user: User) -> dict[str,
     )
     recent_comments = recent_comments_result.scalars().all()
 
-    published_count = len(published_posts)
+    pending_comments_count = (
+        await db.execute(
+            select(func.count(Comment.id))
+            .join(Post)
+            .where(Post.author_id == user.id, Comment.moderation_status == COMMENT_STATUS_PENDING)
+        )
+    ).scalar_one_or_none() or 0
+
+    stale_drafts = [
+        post for post in draft_posts if (now - (post.updated_at or post.created_at)).days >= 14
+    ]
+    stale_drafts_count = len(stale_drafts)
+
+    published_with_category = sum(1 for post in published_posts if post.category is not None)
+    published_with_summary = sum(1 for post in published_posts if (post.summary or "").strip())
+    published_with_cover = sum(1 for post in published_posts if (post.featured_image or "").strip())
+    published_with_comments_enabled = sum(1 for post in published_posts if post.allow_comments)
+    uncategorized_posts = [post for post in published_posts if post.category is None]
+
+    feature_candidates = sorted(
+        [
+            post
+            for post in published_posts
+            if not post.is_featured and (post.views >= max(average_views, 20) or post.comment_count >= 2)
+        ],
+        key=lambda post: (post.views, post.comment_count, post.like_count),
+        reverse=True,
+    )
+    low_engagement_posts = sorted(
+        [
+            post
+            for post in published_posts
+            if (now - activity_date(post)).days >= 30
+            and post.views <= max(int(average_views * 0.35), 15)
+            and post.comment_count == 0
+            and post.like_count == 0
+        ],
+        key=lambda post: (post.views, activity_date(post)),
+    )
+
+    top_posts = [
+        {
+            "title": post.title,
+            "slug": post.slug,
+            "views": post.views,
+            "like_count": post.like_count,
+            "comment_count": post.comment_count,
+            "engagement_score": post_engagement_score(post),
+        }
+        for post in sorted(
+            published_posts,
+            key=lambda post: (post_engagement_score(post), post.created_at.timestamp()),
+            reverse=True,
+        )[:5]
+    ]
+
+    latest_drafts = [
+        {
+            "id": post.id,
+            "title": post.title,
+            "updated_label": describe_elapsed_days(post.updated_at or post.created_at, now),
+            "status_label": "久未更新" if post in stale_drafts else "进行中",
+            "status_tone": "warning" if post in stale_drafts else "neutral",
+        }
+        for post in sorted(draft_posts, key=lambda item: item.updated_at or item.created_at, reverse=True)[:5]
+    ]
+
+    highlight_cards = [
+        {
+            "label": "已发布文章",
+            "value": format_metric_value(len(published_posts), 0),
+            "helper": "当前公开可读的内容总量",
+            "delta_text": f"上次发布：{describe_elapsed_days(activity_date(latest_published_post), now) if latest_published_post else '暂无'}",
+            "delta_tone": "neutral",
+        },
+        {
+            "label": "本期发布",
+            "value": format_metric_value(len(period_posts), 0),
+            "helper": f"{period_label}内发布的文章数",
+            **describe_metric_change(len(period_posts), len(previous_period_posts), precision=0),
+        },
+        {
+            "label": "平均浏览",
+            "value": format_metric_value(average_views, 1),
+            "helper": "单篇发布文章当前累计平均浏览",
+            "delta_text": f"{period_label}新文章平均 {format_metric_value(period_avg_views, 1)} 浏览",
+            "delta_tone": "neutral",
+        },
+        {
+            "label": "本期互动率",
+            "value": format_metric_value(period_engagement_rate, 1, "%"),
+            "helper": "（点赞 + 评论）/ 浏览，衡量内容被回应的程度",
+            **describe_metric_change(period_engagement_rate, previous_engagement_rate, precision=1, suffix="%"),
+        },
+        {
+            "label": "待审核评论",
+            "value": format_metric_value(pending_comments_count, 0),
+            "helper": "读者正在等你处理这些评论",
+            "delta_text": "评论流转正常" if pending_comments_count == 0 else "建议优先处理，避免对话中断",
+            "delta_tone": "positive" if pending_comments_count == 0 else "warning",
+        },
+        {
+            "label": "久未更新草稿",
+            "value": format_metric_value(stale_drafts_count, 0),
+            "helper": "超过 14 天没有继续推进的草稿",
+            "delta_text": "草稿节奏健康" if stale_drafts_count == 0 else "可以挑一篇继续补完",
+            "delta_tone": "positive" if stale_drafts_count == 0 else "warning",
+        },
+    ]
+
+    comparison_metrics = [
+        {
+            "label": "发布文章",
+            "current": format_metric_value(len(period_posts), 0),
+            "previous": format_metric_value(len(previous_period_posts), 0),
+            **describe_metric_change(len(period_posts), len(previous_period_posts), precision=0),
+        },
+        {
+            "label": "平均浏览 / 篇",
+            "current": format_metric_value(period_avg_views, 1),
+            "previous": format_metric_value(previous_avg_views, 1),
+            **describe_metric_change(period_avg_views, previous_avg_views, precision=1),
+        },
+        {
+            "label": "平均评论 / 篇",
+            "current": format_metric_value(period_avg_comments, 1),
+            "previous": format_metric_value(previous_avg_comments, 1),
+            **describe_metric_change(period_avg_comments, previous_avg_comments, precision=1),
+        },
+        {
+            "label": "平均点赞 / 篇",
+            "current": format_metric_value(period_avg_likes, 1),
+            "previous": format_metric_value(previous_avg_likes, 1),
+            **describe_metric_change(period_avg_likes, previous_avg_likes, precision=1),
+        },
+    ]
+
+    health_cards = [
+        build_ratio_health_card("分类完整度", published_with_category, len(published_posts), "已归入分类的文章占比"),
+        build_ratio_health_card("摘要完整度", published_with_summary, len(published_posts), "带摘要的文章占比"),
+        build_ratio_health_card("封面覆盖率", published_with_cover, len(published_posts), "设置了封面图的文章占比"),
+        build_ratio_health_card("开放评论率", published_with_comments_enabled, len(published_posts), "仍允许读者互动的文章占比"),
+    ]
+
+    attention_items: list[dict[str, str]] = []
+    if pending_comments_count:
+        attention_items.append(
+            {
+                "title": f"有 {pending_comments_count} 条评论待审核",
+                "detail": "优先把读者的对话放出来，互动会更连贯。",
+                "href": "/dashboard/comments?status=pending",
+                "action_label": "去处理评论",
+                "tone": "warning",
+            }
+        )
+    if stale_drafts:
+        oldest_draft = sorted(stale_drafts, key=lambda item: item.updated_at or item.created_at)[0]
+        attention_items.append(
+            {
+                "title": f"草稿《{oldest_draft.title}》已放置较久",
+                "detail": f"{describe_elapsed_days(oldest_draft.updated_at or oldest_draft.created_at, now)}，适合决定继续写还是关闭。",
+                "href": f"/dashboard/posts/edit/{oldest_draft.id}",
+                "action_label": "继续完善草稿",
+                "tone": "warning",
+            }
+        )
+    if feature_candidates:
+        candidate = feature_candidates[0]
+        attention_items.append(
+            {
+                "title": f"《{candidate.title}》值得考虑设为精选",
+                "detail": f"这篇文章已拿到 {candidate.views} 浏览和 {candidate.comment_count} 条评论，但还没有被标记为精选。",
+                "href": f"/dashboard/posts/edit/{candidate.id}",
+                "action_label": "去编辑文章",
+                "tone": "positive",
+            }
+        )
+    if uncategorized_posts:
+        attention_items.append(
+            {
+                "title": f"还有 {len(uncategorized_posts)} 篇文章没有分类",
+                "detail": "补齐分类后，归档页、搜索和主题分布会更清晰。",
+                "href": "/dashboard/posts",
+                "action_label": "整理文章分类",
+                "tone": "neutral",
+            }
+        )
+    if low_engagement_posts:
+        quiet_post = low_engagement_posts[0]
+        attention_items.append(
+            {
+                "title": f"《{quiet_post.title}》互动偏低",
+                "detail": "可以补摘要、封面、标题或在正文开头增加更明确的切入点。",
+                "href": f"/dashboard/posts/edit/{quiet_post.id}",
+                "action_label": "优化这篇文章",
+                "tone": "neutral",
+            }
+        )
+    if not attention_items:
+        attention_items.append(
+            {
+                "title": "当前内容状态很健康",
+                "detail": "没有明显的待办堵点，可以继续写作，或者回到数据里找下一篇值得扩展的主题。",
+                "href": "/dashboard/posts/new",
+                "action_label": "继续写新文章",
+                "tone": "positive",
+            }
+        )
+
+    period_options = [
+        {
+            "label": label,
+            "days": days,
+            "href": f"/dashboard/analytics?period={days}",
+            "active": days == period_days,
+        }
+        for days, label in ANALYTICS_PERIOD_LABELS.items()
+    ]
+
     return {
         "top_posts": top_posts,
         "monthly_data": monthly_data,
+        "weekday_breakdown": weekday_breakdown,
+        "best_weekday": best_weekday,
         "category_breakdown": category_breakdown,
+        "tag_breakdown": tag_breakdown,
         "recent_comments": recent_comments,
-        "average_views": round(sum(post.views for post in published_posts) / published_count, 1) if published_count else 0,
-        "average_likes": round(sum(post.like_count for post in published_posts) / published_count, 1) if published_count else 0,
-        "average_comments": round(sum(post.comment_count for post in published_posts) / published_count, 1) if published_count else 0,
+        "latest_drafts": latest_drafts,
+        "highlight_cards": highlight_cards,
+        "comparison_metrics": comparison_metrics,
+        "health_cards": health_cards,
+        "attention_items": attention_items,
+        "analytics_period_label": period_label,
+        "analytics_period_days": period_days,
+        "analytics_period_options": period_options,
+        "analytics_window_label": f"{period_start.strftime('%Y-%m-%d')} 至 {now.strftime('%Y-%m-%d')}",
+        "average_views": average_views,
+        "average_likes": average_likes,
+        "average_comments": average_comments,
+        "period_post_count": len(period_posts),
     }
 
 

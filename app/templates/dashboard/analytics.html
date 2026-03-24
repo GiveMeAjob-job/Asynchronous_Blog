@@ -11,37 +11,67 @@
             <div class="section-heading section-heading--compact">
                 <div>
                     <p class="eyebrow">Analytics</p>
-                    <h1>你的内容最近表现怎么样</h1>
+                    <h1>把数据变成下一步动作</h1>
+                    <p class="section-copy">统计范围：{{ analytics_period_label }} · {{ analytics_window_label }}</p>
                 </div>
             </div>
 
-            <div class="stats-grid">
-                <article class="stat-card">
-                    <span class="stat-card__label">已发布文章</span>
-                    <strong class="stat-card__value">{{ published_posts }}</strong>
+            <div class="analytics-toolbar">
+                <div class="filter-pills">
+                    {% for option in analytics_period_options %}
+                    <a href="{{ option.href }}" class="filter-pill {% if option.active %}active{% endif %}">{{ option.label }}</a>
+                    {% endfor %}
+                </div>
+                <p class="muted analytics-toolbar__hint">这里的“本期表现”基于该时间段内发布的文章，方便你对比不同写作周期的产出质量。</p>
+            </div>
+
+            <div class="stats-grid analytics-stats-grid">
+                {% for card in highlight_cards %}
+                <article class="stat-card stat-card--analytics">
+                    <span class="stat-card__label">{{ card.label }}</span>
+                    <strong class="stat-card__value">{{ card.value }}</strong>
+                    <p class="stat-card__helper">{{ card.helper }}</p>
+                    <span class="delta-chip delta-chip--{{ card.delta_tone }}">{{ card.delta_text }}</span>
                 </article>
-                <article class="stat-card">
-                    <span class="stat-card__label">平均浏览</span>
-                    <strong class="stat-card__value">{{ average_views }}</strong>
-                </article>
-                <article class="stat-card">
-                    <span class="stat-card__label">平均点赞</span>
-                    <strong class="stat-card__value">{{ average_likes }}</strong>
-                </article>
-                <article class="stat-card">
-                    <span class="stat-card__label">平均评论</span>
-                    <strong class="stat-card__value">{{ average_comments }}</strong>
-                </article>
+                {% endfor %}
             </div>
 
             <div class="panel-grid">
                 <section class="sub-panel">
                     <div class="section-heading section-heading--compact">
                         <div>
-                            <p class="eyebrow">Momentum</p>
-                            <h2>近 6 个月发布节奏</h2>
+                            <p class="eyebrow">Compare</p>
+                            <h2>本周期 vs 上一周期</h2>
                         </div>
                     </div>
+
+                    <div class="comparison-list">
+                        {% for item in comparison_metrics %}
+                        <div class="comparison-row">
+                            <div>
+                                <strong class="comparison-row__title">{{ item.label }}</strong>
+                                <p class="comparison-row__meta">上一周期 {{ item.previous }}</p>
+                            </div>
+                            <div class="comparison-row__current">{{ item.current }}</div>
+                            <span class="delta-chip delta-chip--{{ item.delta_tone }}">{{ item.delta_text }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+
+                <section class="sub-panel">
+                    <div class="section-heading section-heading--compact">
+                        <div>
+                            <p class="eyebrow">Momentum</p>
+                            <h2>发布节奏与高峰时段</h2>
+                        </div>
+                    </div>
+
+                    {% if best_weekday and best_weekday.count %}
+                    <p class="analytics-callout">这段时间里，你最常在 <strong>{{ best_weekday.label }}</strong> 发布内容，共 {{ best_weekday.count }} 篇。</p>
+                    {% else %}
+                    <p class="muted">当前时间范围内还没有新的发布记录，等你发出新文章后这里会显示更具体的节奏。</p>
+                    {% endif %}
 
                     <div class="insight-list">
                         {% for item in monthly_data %}
@@ -54,13 +84,104 @@
                         </div>
                         {% endfor %}
                     </div>
+
+                    <div class="weekday-grid">
+                        {% for item in weekday_breakdown %}
+                        <div class="weekday-card {% if best_weekday and best_weekday.label == item.label and item.count %}active{% endif %}">
+                            <span>{{ item.label }}</span>
+                            <strong>{{ item.count }}</strong>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+            </div>
+
+            <div class="panel-grid">
+                <section class="sub-panel">
+                    <div class="section-heading section-heading--compact">
+                        <div>
+                            <p class="eyebrow">Content Health</p>
+                            <h2>内容健康度</h2>
+                        </div>
+                    </div>
+
+                    <div class="analytics-health-grid">
+                        {% for item in health_cards %}
+                        <article class="health-card health-card--{{ item.tone }}">
+                            <span class="health-card__label">{{ item.label }}</span>
+                            <strong class="health-card__value">{{ item.value }}</strong>
+                            <p>{{ item.helper }}</p>
+                        </article>
+                        {% endfor %}
+                    </div>
                 </section>
 
                 <section class="sub-panel">
                     <div class="section-heading section-heading--compact">
                         <div>
-                            <p class="eyebrow">Categories</p>
-                            <h2>分类分布</h2>
+                            <p class="eyebrow">Actions</p>
+                            <h2>现在最值得处理的事</h2>
+                        </div>
+                    </div>
+
+                    <div class="analytics-action-list">
+                        {% for item in attention_items %}
+                        <article class="analytics-action-card analytics-action-card--{{ item.tone }}">
+                            <div>
+                                <strong>{{ item.title }}</strong>
+                                <p>{{ item.detail }}</p>
+                            </div>
+                            <a href="{{ item.href }}" class="btn btn-ghost btn-sm">{{ item.action_label }}</a>
+                        </article>
+                        {% endfor %}
+                    </div>
+                </section>
+            </div>
+
+            <div class="panel-grid">
+                <section class="sub-panel">
+                    <div class="section-heading section-heading--compact">
+                        <div>
+                            <p class="eyebrow">Top Posts</p>
+                            <h2>表现最佳的文章</h2>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th>标题</th>
+                                    <th>浏览</th>
+                                    <th>点赞</th>
+                                    <th>评论</th>
+                                    <th>效率分</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for post in top_posts %}
+                                <tr>
+                                    <td><a href="{{ url_for('post_detail', slug=post.slug) }}">{{ post.title }}</a></td>
+                                    <td>{{ post.views }}</td>
+                                    <td>{{ post.like_count }}</td>
+                                    <td>{{ post.comment_count }}</td>
+                                    <td>{{ post.engagement_score }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="table-empty">先发布几篇文章，这里会开始告诉你哪些内容真的在工作。</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="sub-panel">
+                    <div class="section-heading section-heading--compact">
+                        <div>
+                            <p class="eyebrow">Topics</p>
+                            <h2>分类与标签分布</h2>
                         </div>
                     </div>
 
@@ -77,8 +198,16 @@
                         {% endfor %}
                     </div>
                     {% else %}
-                    <p class="muted">等你把文章归进更多分类后，这里会出现更清晰的内容结构。</p>
+                    <p class="muted">还没有足够的分类数据，等你继续整理内容结构后这里会更有参考价值。</p>
                     {% endif %}
+
+                    <div class="tag-cluster">
+                        {% for item in tag_breakdown %}
+                        <span class="tag-chip">{{ item.name }} · {{ item.count }}</span>
+                        {% else %}
+                        <span class="muted">还没有形成稳定的标签分布。</span>
+                        {% endfor %}
+                    </div>
                 </section>
             </div>
 
@@ -86,36 +215,24 @@
                 <section class="sub-panel">
                     <div class="section-heading section-heading--compact">
                         <div>
-                            <p class="eyebrow">Top Posts</p>
-                            <h2>表现最好的文章</h2>
+                            <p class="eyebrow">Draft Pipeline</p>
+                            <h2>草稿推进情况</h2>
                         </div>
+                        <a href="{{ url_for('my_posts') }}" class="btn btn-ghost btn-sm">查看全部</a>
                     </div>
 
-                    <div class="table-responsive">
-                        <table class="custom-table">
-                            <thead>
-                                <tr>
-                                    <th>标题</th>
-                                    <th>浏览</th>
-                                    <th>点赞</th>
-                                    <th>评论</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for post in top_posts %}
-                                <tr>
-                                    <td><a href="{{ url_for('post_detail', slug=post.slug) }}">{{ post.title }}</a></td>
-                                    <td>{{ post.views }}</td>
-                                    <td>{{ post.like_count }}</td>
-                                    <td>{{ post.comment_count }}</td>
-                                </tr>
-                                {% else %}
-                                <tr>
-                                    <td colspan="4" class="table-empty">先发布几篇文章，这里会开始告诉你哪些内容更有表现。</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                    <div class="analytics-list">
+                        {% for draft in latest_drafts %}
+                        <article class="analytics-list-card">
+                            <div>
+                                <strong><a href="{{ url_for('edit_post_page_route', post_id=draft.id) }}">{{ draft.title }}</a></strong>
+                                <p>{{ draft.updated_label }}</p>
+                            </div>
+                            <span class="status-badge {% if draft.status_tone == 'warning' %}status-draft{% else %}status-published{% endif %}">{{ draft.status_label }}</span>
+                        </article>
+                        {% else %}
+                        <p class="muted">当前没有草稿积压，写作节奏很顺。</p>
+                        {% endfor %}
                     </div>
                 </section>
 
@@ -123,7 +240,7 @@
                     <div class="section-heading section-heading--compact">
                         <div>
                             <p class="eyebrow">Conversation</p>
-                            <h2>最新评论</h2>
+                            <h2>最新评论动态</h2>
                         </div>
                         <a href="{{ url_for('dashboard_comments_page') }}" class="btn btn-ghost btn-sm">去管理</a>
                     </div>
@@ -131,9 +248,17 @@
                     <div class="moderation-list">
                         {% for comment in recent_comments %}
                         <article class="moderation-card">
-                            <strong>{{ comment.author.full_name or comment.author.username }}</strong>
-                            <p>{{ comment.content|excerpt(120) }}</p>
-                            <span>{{ comment.post.title if comment.post else '未知文章' }} · {{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                            <div class="moderation-card__header">
+                                <strong>{{ comment.author.full_name or comment.author.username }}</strong>
+                                <span class="status-badge {% if comment.moderation_status == 'approved' %}status-published{% elif comment.moderation_status == 'pending' %}status-draft{% else %}status-hidden{% endif %}">
+                                    {% if comment.moderation_status == 'approved' %}已展示{% elif comment.moderation_status == 'pending' %}待审核{% else %}已隐藏{% endif %}
+                                </span>
+                            </div>
+                            <p class="moderation-card__content">{{ comment.content|excerpt(120) }}</p>
+                            <div class="moderation-card__footer">
+                                <span>{{ comment.post.title if comment.post else '未知文章' }}</span>
+                                <span>{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                            </div>
                         </article>
                         {% else %}
                         <p class="muted">还没有评论数据，等读者开始互动后这里会更有意思。</p>
